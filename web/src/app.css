@@ -1,6 +1,5 @@
 /* Vendored kit design tokens + loader keyframes */
 @import "./lib/kit/styles/globals.css";
-@import "@fontsource-variable/inter";
 
 /* Scan kit + app for Tailwind classes */
 @source "./lib/kit/**/*.{svelte,ts,js}";
@@ -9,8 +8,12 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --font-inter: "Inter Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "WenQuanYi Micro Hei", ui-sans-serif, system-ui, sans-serif;
-  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  /* UI font: system stack tuned so Latin (Segoe UI) sits well next to Microsoft YaHei / PingFang / Noto CJK.
+     Overridden by Settings → UI font (see lib/fonts.svelte.ts). Names are kept for the vendored kit. */
+  --font-inter: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Helvetica Neue", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Source Han Sans SC", "WenQuanYi Micro Hei", Arial, sans-serif;
+  /* Code / paths / tool output only. CJK faces last so Chinese in code still gets a real glyph. */
+  --font-geist-mono: "Cascadia Code", "Cascadia Mono", Consolas, "JetBrains Mono", "Maple Mono NF CN", ui-monospace, SFMono-Regular, Menlo, Monaco, "Microsoft YaHei", "PingFang SC", "Noto Sans Mono CJK SC", "Noto Sans CJK SC", monospace;
+  --code-scale: 1;
   /* Chat shell / sticky prompt canvas (warm off-white, not zinc gray) */
   --pi-canvas: #faf9f7;
   --pi-canvas-footer: color-mix(in oklab, #faf9f7 92%, white);
@@ -34,6 +37,30 @@ body {
   font-family: var(--font-inter);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Gap between CJK and Latin/digits; trim doubled CJK punctuation spaces. */
+  text-autospace: normal;
+  text-spacing-trim: normal;
+  font-synthesis: none;
+}
+
+/* Chinese UI: roomier prose, no tracking on CJK glyphs. */
+html:lang(zh) body,
+html:lang(zh) .md-root {
+  line-height: 1.65;
+}
+html:lang(zh) [class*="tracking-"] {
+  letter-spacing: normal;
+}
+.md-root {
+  text-autospace: normal;
+}
+code,
+pre,
+kbd,
+samp,
+.font-mono {
+  font-family: var(--font-geist-mono);
+  text-autospace: no-autospace;
 }
 
 ::selection {

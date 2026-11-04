@@ -111,7 +111,7 @@
 		padding: 0.65rem 0.75rem;
 		overflow-x: auto;
 		background: transparent !important;
-		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-family: var(--font-geist-mono);
 		font-size: inherit;
 		line-height: inherit;
 	}

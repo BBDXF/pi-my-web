@@ -1,5 +1,6 @@
 <script lang="ts">
   import { LOCALES, i18n, setLocale, t } from "$lib/i18n.svelte";
+  import { fontPrefs, setUiFont, setCodeSize, UI_FONT_STACKS, type UiFont, type CodeSize } from "$lib/fonts.svelte";
   import { THEMES, appTheme, setAppTheme } from "$lib/themes.svelte";
   import X from "@lucide/svelte/icons/x";
   import Check from "@lucide/svelte/icons/check";
@@ -37,6 +38,36 @@
               aria-pressed={i18n.locale === l.id}
               onclick={() => setLocale(l.id)}
             >{l.label}</button>
+          {/each}
+        </div>
+      </section>
+
+      <section class="mb-5">
+        <h3 class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("settings.font")}</h3>
+        <div class="grid grid-cols-3 gap-2">
+          {#each [["system", "settings.fontSystem"], ["inter", "settings.fontInter"], ["noto", "settings.fontNoto"]] as const as [id, key] (id)}
+            <button
+              type="button"
+              data-ui-font={id}
+              class="rounded-lg border p-2 text-left transition-colors {fontPrefs.font === id ? 'border-primary bg-muted' : 'border-border hover:bg-muted/70'}"
+              aria-pressed={fontPrefs.font === id}
+              onclick={() => setUiFont(id as UiFont)}
+            >
+              <div class="truncate text-base" style="font-family:{UI_FONT_STACKS[id as UiFont]}">{t("settings.fontSample")}</div>
+              <div class="mt-0.5 truncate text-[11px] text-muted-foreground">{t(key)}</div>
+            </button>
+          {/each}
+        </div>
+        <h3 class="mb-2 mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("settings.codeSize")}</h3>
+        <div class="flex flex-wrap gap-2">
+          {#each [["s", "settings.sizeS"], ["m", "settings.sizeM"], ["l", "settings.sizeL"], ["xl", "settings.sizeXl"]] as const as [id, key] (id)}
+            <button
+              type="button"
+              data-code-size={id}
+              class="rounded-md border px-3 py-1.5 text-sm transition-colors {fontPrefs.codeSize === id ? 'border-primary bg-muted font-medium' : 'border-border hover:bg-muted/70'}"
+              aria-pressed={fontPrefs.codeSize === id}
+              onclick={() => setCodeSize(id as CodeSize)}
+            >{t(key)}</button>
           {/each}
         </div>
       </section>

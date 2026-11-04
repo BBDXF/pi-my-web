@@ -72,7 +72,7 @@
 			{/if}
 		</button>
 	</div>
-	<div class="md-code-body min-w-0 overflow-x-auto text-[12px] leading-relaxed">
+	<div class="md-code-body min-w-0 overflow-x-auto text-[length:calc(12px*var(--code-scale,1))] leading-relaxed">
 		{@html html}
 	</div>
 </div>

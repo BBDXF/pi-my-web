@@ -19,9 +19,8 @@
     min-width: max-content;
     padding: 0.5rem;
     background: transparent !important;
-    font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      monospace;
-    font-size: 11px;
+    font-family: var(--font-geist-mono);
+    font-size: calc(11px * var(--code-scale, 1));
     line-height: 1.625;
   }
   .highlighted-pre :global(.shiki),

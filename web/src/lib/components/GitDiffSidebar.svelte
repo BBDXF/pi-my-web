@@ -589,7 +589,7 @@
               </div>
             {:else}
               <div
-                class="gh-diff text-[11px] leading-[1.45]"
+                class="gh-diff text-[length:calc(11px*var(--code-scale,1))] leading-[1.45]"
                 class:gh-diff-wrap={wrap}
                 class:gh-diff-nowrap={!wrap}
               >
