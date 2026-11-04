@@ -33,7 +33,6 @@ npm install && npm install --prefix web
 npm run dev:server   # :3847
 npm run dev:web      # :5173 proxies /api
 # package UI: npm run build
-# build docs: npm run build:docs
 # test extension: pi install <path> → /gui
 ```
 
