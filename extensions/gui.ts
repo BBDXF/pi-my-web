@@ -1,7 +1,7 @@
 /**
  * Pi extension: /gui starts localhost web UI in-process and attaches the live session.
  *
- * Install: pi install /path/to/pi-gui
+ * Install: pi install /path/to/pi-my-web
  * Or: pi -e ./extensions/gui.ts
  */
 import {
@@ -62,7 +62,7 @@ function getSessionById(id: string) {
 /** @type {ReturnType<typeof createServer> | null} */
 let app: ReturnType<typeof createServer> | null = null;
 
-const DEFAULT_PORT = Number(process.env.PI_GUI_PORT || 3847);
+const DEFAULT_PORT = Number((process.env.PI_MY_WEB_PORT ?? process.env.PI_GUI_PORT) || 3847);
 
 /**
  * Parse `/gui` args.
@@ -209,7 +209,7 @@ async function ensureServer(
   if (app) return;
 
   if (await isUp(port)) {
-    notify(`Taking over pi-gui on :${port} for live session…`);
+    notify(`Taking over pi-my-web on :${port} for live session…`);
     await stopServer(port);
     if (!(await waitUntilDown(port))) {
       throw new Error(
@@ -217,12 +217,12 @@ async function ensureServer(
       );
     }
   } else {
-    notify("Starting pi-gui…");
+    notify("Starting pi-my-web…");
   }
 
   await startServer(port);
   if (!app) {
-    throw new Error(`failed to bind pi-gui on :${port}`);
+    throw new Error(`failed to bind pi-my-web on :${port}`);
   }
 }
 
@@ -265,9 +265,9 @@ function openBrowser(url: string): void {
 }
 
 export default function (pi: ExtensionAPI) {
-  pi.registerCommand("gui", {
+  const registerOpen = (name: string) => pi.registerCommand(name, {
     description:
-      "Open pi-gui. /gui · /gui <sessionId> · /gui open <id> · /gui stop. Takes over port if needed.",
+      "Open pi-my-web. /gui · /gui <sessionId> · /gui open <id> · /gui stop. Takes over port if needed.",
     handler: async (args, ctx) => {
       const { cmd, port, sessionRef } = parseArgs(args);
       const base = `http://127.0.0.1:${port}`;
@@ -276,9 +276,9 @@ export default function (pi: ExtensionAPI) {
         if (cmd === "stop") {
           const result = await stopServer(port);
           if (result === "not_running") {
-            ctx.ui.notify(`pi-gui not running on :${port}`, "info");
+            ctx.ui.notify(`pi-my-web not running on :${port}`, "info");
           } else {
-            ctx.ui.notify(`pi-gui stopped (:${port})`, "info");
+            ctx.ui.notify(`pi-my-web stopped (:${port})`, "info");
           }
           return;
         }
@@ -290,16 +290,18 @@ export default function (pi: ExtensionAPI) {
         const { id, live } = await resolveSessionInHub(sessionRef, ctx);
         const url = `${base}/sessions/${encodeURIComponent(id)}`;
         ctx.ui.notify(
-          live ? `pi-gui: ${url} (live)` : `pi-gui: ${url}`,
+          live ? `pi-my-web: ${url} (live)` : `pi-my-web: ${url}`,
           "info",
         );
         openBrowser(url);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        ctx.ui.notify(`pi-gui failed: ${msg}`, "error");
+        ctx.ui.notify(`pi-my-web failed: ${msg}`, "error");
       }
     },
   });
+  registerOpen("gui");
+  registerOpen("web");
 
   // Attach each new TUI session without dropping others (multi-live).
   // Hub-owned sessions also load this extension with mode "rpc" — ignore those.

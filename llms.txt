@@ -1,13 +1,13 @@
-# pi-gui LLM instructions
+# pi-my-web LLM instructions
 
-pi-gui is a localhost multi-session browser UI for pi. Pi owns AgentSession,
-models, auth, tools, skills, extensions, and session JSONL files. pi-gui is a
+pi-my-web is a localhost multi-session browser UI for pi. Pi owns AgentSession,
+models, auth, tools, skills, extensions, and session JSONL files. pi-my-web is a
 thin Svelte client plus Node http/SSE hub over @earendil-works/pi-coding-agent.
 
 ## Install / use facts
 
 ```bash
-pi install npm:pi-gui-extension
+pi install git:github.com/BBDXF/pi-my-web
 ```
 
 Inside pi:

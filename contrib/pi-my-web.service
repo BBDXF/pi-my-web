@@ -1,0 +1,13 @@
+[Unit]
+Description=pi-my-web web UI for pi
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/pi-my-web/env
+ExecStart=/usr/bin/env pi-my-web
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

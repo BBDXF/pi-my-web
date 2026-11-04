@@ -150,7 +150,7 @@ function pickModelFromScope(scopedModels, settingsManager, modelRuntime) {
  */
 
 /** Idle-close when no SSE listeners (0 = disabled). */
-const SESSION_IDLE_MS = Number(process.env.PI_GUI_SESSION_IDLE_MS ?? 24 * 60 * 60 * 1000);
+const SESSION_IDLE_MS = Number((process.env.PI_MY_WEB_SESSION_IDLE_MS ?? process.env.PI_GUI_SESSION_IDLE_MS) ?? 24 * 60 * 60 * 1000);
 
 /** Recent SSE events for Last-Event-ID replay after reconnect. */
 const SSE_RING_MAX = 500;
@@ -440,7 +440,7 @@ export class SessionHub {
       }
       this.close(cur.id).catch((e) => {
         console.error(
-          "[pi-gui] idle close failed",
+          "[pi-my-web] idle close failed",
           e instanceof Error ? e.message : e,
         );
       });
@@ -501,7 +501,7 @@ export class SessionHub {
       session.setScopedModels(scopedModels);
     } catch (err) {
       console.error(
-        "[pi-gui] scoped models sync failed",
+        "[pi-my-web] scoped models sync failed",
         err instanceof Error ? err.message : err,
       );
     }
@@ -521,7 +521,7 @@ export class SessionHub {
       this._warmReg = modelRegistry(session);
     } catch (err) {
       console.error(
-        "[pi-gui] model registry warm failed",
+        "[pi-my-web] model registry warm failed",
         err instanceof Error ? err.message : err,
       );
     }
@@ -816,7 +816,7 @@ export class SessionHub {
       },
       onError: (err) => {
         console.error(
-          `[pi-gui] extension error (${err.extensionPath}):`,
+          `[pi-my-web] extension error (${err.extensionPath}):`,
           err.error instanceof Error ? err.error.message : err.error,
         );
       },
@@ -836,7 +836,7 @@ export class SessionHub {
       await runner.emit({ type: "session_start", reason: "resume" });
     } catch (err) {
       console.error(
-        "[pi-gui] session activate failed",
+        "[pi-my-web] session activate failed",
         err instanceof Error ? err.message : err,
       );
     }
@@ -1795,7 +1795,7 @@ export class SessionHub {
         });
       } catch (err) {
         console.error(
-          "[pi-gui] session_shutdown failed",
+          "[pi-my-web] session_shutdown failed",
           err instanceof Error ? err.message : err,
         );
       }

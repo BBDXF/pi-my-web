@@ -1,5 +1,5 @@
 {
-  "name": "pi-gui-extension",
+  "name": "pi-my-web",
   "version": "0.5.0",
   "description": "Web UI for pi: multi-session chat, standalone daemon with password login, themes, i18n (en/zh), usage details and a session manager.",
   "type": "module",
@@ -7,18 +7,18 @@
   "author": "BBDXF (https://github.com/BBDXF)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BBDXF/pi-gui-extension.git"
+    "url": "git+https://github.com/BBDXF/pi-my-web.git"
   },
   "bugs": {
-    "url": "https://github.com/BBDXF/pi-gui-extension/issues"
+    "url": "https://github.com/BBDXF/pi-my-web/issues"
   },
-  "homepage": "https://github.com/BBDXF/pi-gui-extension#readme",
+  "homepage": "https://github.com/BBDXF/pi-my-web#readme",
   "keywords": [
     "pi-package",
     "pi",
     "pi-extension",
-    "pi-gui",
-    "pi-gui-extension",
+    "pi-my-web",
+    "pi-web",
     "gui",
     "web-ui",
     "agent",
@@ -67,7 +67,7 @@
   },
   "main": "./index.js",
   "bin": {
-    "pi-gui": "./bin/pi-gui"
+    "pi-my-web": "./bin/pi-my-web"
   },
   "contributors": [
     "Ankit Chouhan (https://github.com/ankitchouhan1020) — original author of pi-gui-extension"

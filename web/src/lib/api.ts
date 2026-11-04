@@ -1,4 +1,4 @@
-/** Thin fetch client for pi-gui server. */
+/** Thin fetch client for pi-my-web server. */
 
 export type SessionRow = {
   id: string;
@@ -185,7 +185,7 @@ async function req<T>(path: string, init?: RequestInit, attempt = 0): Promise<T>
     // Browser: TypeError "Failed to fetch" when connection drops
     throw new Error(
       /failed to fetch|networkerror|load failed/i.test(base)
-        ? "Server unreachable — is pi-gui running on :3847?"
+        ? "Server unreachable — is pi-my-web running on :3847?"
         : base,
     );
   }
@@ -680,7 +680,7 @@ export function getGitDiff(id: string, filePath: string) {
   );
 }
 
-/** Stop the pi-gui server (localhost only). */
+/** Stop the pi-my-web server (localhost only). */
 export function shutdown() {
   return req<{ ok: boolean }>("/api/shutdown", { method: "POST" });
 }

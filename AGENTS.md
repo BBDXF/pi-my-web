@@ -1,4 +1,4 @@
-# pi-gui — agent instructions
+# pi-my-web — agent instructions
 
 Localhost web UI for pi. Thin Svelte client + multi-session hub over `@earendil-works/pi-coding-agent`.
 
@@ -36,7 +36,7 @@ npm run dev:web      # :5173 proxies /api
 # test extension: pi install <path> → /gui
 ```
 
-Port: `PI_GUI_PORT` (default `3847`).
+Port: `PI_MY_WEB_PORT` (default `3847`; legacy `PI_GUI_PORT` still honored).
 
 ## Zones (summary)
 

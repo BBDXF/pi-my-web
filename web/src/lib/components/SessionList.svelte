@@ -408,7 +408,7 @@
   >
     <div class="flex min-w-0 items-center gap-2">
       <img src="/favicon.svg" alt="" width="22" height="22" class="size-[22px] shrink-0 rounded-[5px]" />
-      <div class="min-w-0 whitespace-nowrap text-sm font-semibold tracking-tight">pi-gui</div>
+      <div class="min-w-0 whitespace-nowrap text-sm font-semibold tracking-tight">pi-my-web</div>
     </div>
     <div class="flex shrink-0 items-center gap-0.5">
       <SoundToggle />

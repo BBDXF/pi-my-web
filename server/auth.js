@@ -12,7 +12,7 @@ export function safeEqual(a, b) {
 
 /** @param {{ password?: string }} [opts] */
 export function createAuth(opts = {}) {
-  const password = opts.password ?? process.env.PI_GUI_PASSWORD ?? "";
+  const password = opts.password ?? (process.env.PI_MY_WEB_PASSWORD ?? process.env.PI_GUI_PASSWORD) ?? "";
   const tokens = new Set();
   /** @param {import("node:http").IncomingMessage} req */
   const tokenOf = (req) => {

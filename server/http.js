@@ -1,5 +1,5 @@
 /**
- * Minimal HTTP + SSE API for pi-gui.
+ * Minimal HTTP + SSE API for pi-my-web.
  * No framework — node:http only (ponytail).
  */
 import http from "node:http";
@@ -291,7 +291,7 @@ async function gitFileDiffRaw(cwd, filePath) {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const WEB_DIST = path.join(ROOT, "dist");
-const WEB_DEV = process.env.PI_GUI_DEV === "1";
+const WEB_DEV = (process.env.PI_MY_WEB_DEV ?? process.env.PI_GUI_DEV) === "1";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -621,7 +621,7 @@ async function handleApi(req, res) {
       const s = await hub.ensure(id);
       // 202 fire-and-forget; hub.#failTurn emits error + agent_settled on failure
       hub.prompt(s.id, body.message, body.images).catch((err) => {
-        console.error("[pi-gui] prompt error", s.id, err);
+        console.error("[pi-my-web] prompt error", s.id, err);
       });
       return json(res, 202, { ok: true, id: s.id });
     }
@@ -761,7 +761,7 @@ async function handleApi(req, res) {
       }
       const s = await hub.ensure(id);
       hub.steer(s.id, body.message, body.images).catch((err) => {
-        console.error("[pi-gui] steer error", s.id, err);
+        console.error("[pi-my-web] steer error", s.id, err);
       });
       return json(res, 202, { ok: true, id: s.id });
     }
@@ -794,7 +794,7 @@ async function handleApi(req, res) {
           excludeFromContext: Boolean(body.excludeFromContext),
         })
         .catch((err) => {
-          console.error("[pi-gui] bash error", s.id, err);
+          console.error("[pi-my-web] bash error", s.id, err);
         });
       return json(res, 202, { ok: true, id: s.id });
     }
@@ -1000,7 +1000,7 @@ async function handleApi(req, res) {
     if (code === "SESSION_NOT_OPEN" || /^Session not open:/.test(message)) {
       return json(res, 404, { error: message, code: "SESSION_NOT_OPEN" });
     }
-    console.error("[pi-gui]", message);
+    console.error("[pi-my-web]", message);
     return json(res, 500, { error: message });
   }
 }
@@ -1070,7 +1070,7 @@ function sendFile(res, filePath) {
   const stream = createReadStream(filePath);
 
   const fail = (err) => {
-    if (err) console.error("[pi-gui] static", filePath, err.message || err);
+    if (err) console.error("[pi-my-web] static", filePath, err.message || err);
     if (!res.headersSent) text(res, 404, "not found");
     else if (!res.writableEnded) res.end();
   };
@@ -1100,7 +1100,7 @@ async function handleStatic(req, res) {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(`<!doctype html>
 <html><body style="font-family:system-ui;padding:2rem">
-  <h1>pi-gui</h1>
+  <h1>pi-my-web</h1>
   <p>Web UI not built. Run <code>npm run dev:web</code> (port 5173) or <code>npm run build</code>.</p>
   <p>API is up at <code>/api/health</code>.</p>
 </body></html>`);
@@ -1121,10 +1121,10 @@ async function handleStatic(req, res) {
  * stayAlive: in-process /gui — close server without process.exit
  */
 export function createServer(opts = {}) {
-  const port = opts.port ?? Number(process.env.PI_GUI_PORT || 3847);
+  const port = opts.port ?? Number((process.env.PI_MY_WEB_PORT ?? process.env.PI_GUI_PORT) || 3847);
   const stayAlive = Boolean(opts.stayAlive);
   hostCtl.stayAlive = stayAlive;
-  const host = opts.host ?? (process.env.PI_GUI_HOST || "127.0.0.1");
+  const host = opts.host ?? ((process.env.PI_MY_WEB_HOST ?? process.env.PI_GUI_HOST) || "127.0.0.1");
   auth = createAuth({ password: opts.password });
 
   const server = http.createServer((req, res) => {
@@ -1139,7 +1139,7 @@ export function createServer(opts = {}) {
       })
       .catch((err) => {
         const message = err instanceof Error ? err.message : String(err);
-        console.error("[pi-gui] request error", message);
+        console.error("[pi-my-web] request error", message);
         json(res, 500, { error: message });
       });
   });
@@ -1150,7 +1150,7 @@ export function createServer(opts = {}) {
   server.headersTimeout = 0;
 
   server.on("error", (err) => {
-    console.error("[pi-gui] server error", err.message);
+    console.error("[pi-my-web] server error", err.message);
   });
 
   const api = {
@@ -1160,7 +1160,7 @@ export function createServer(opts = {}) {
     /** @param {() => void} [cb] */
     listen(cb) {
       server.listen(port, host, () => {
-        console.log(`[pi-gui] http://${host}:${port}`);
+        console.log(`[pi-my-web] http://${host}:${port}`);
         cb?.();
       });
       return server;

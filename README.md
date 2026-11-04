@@ -1,4 +1,4 @@
-# pi-gui
+# pi-my-web
 
 A web UI for [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent): multi-session chat, a standalone daemon with password login, 8 themes, English / 简体中文, detailed token usage and a session manager. [简体中文](#简体中文)
 
@@ -10,7 +10,7 @@ A web UI for [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)
 
 ### Standalone daemon + password login
 
-`bin/pi-gui` runs the server on its own, without a terminal pi session, so you can leave it running (for example under systemd) and open it from a browser whenever you like. Set `PI_GUI_PASSWORD` to require a login; the session is kept in an HttpOnly cookie.
+`bin/pi-my-web` runs the server on its own, without a terminal pi session, so you can leave it running (for example under systemd) and open it from a browser whenever you like. Set `PI_MY_WEB_PASSWORD` to require a login; the session is kept in an HttpOnly cookie.
 
 ![Login page](screenshots/login.png)
 
@@ -56,8 +56,8 @@ The Changes panel no longer freezes the tab on large diffs (size and highlight c
 Requires Node.js ≥ 20 and a working pi install (models and auth already set up).
 
 ```bash
-git clone https://github.com/BBDXF/pi-gui-extension.git
-cd pi-gui-extension
+git clone https://github.com/BBDXF/pi-my-web.git
+cd pi-my-web
 npm install                      # runtime deps
 ```
 
@@ -66,7 +66,7 @@ The built UI in `dist/` is committed. To change the UI, run `npm install --prefi
 ### As a pi extension (`/gui`)
 
 ```bash
-pi install /path/to/pi-gui-extension
+pi install /path/to/pi-my-web
 ```
 
 Then, inside any pi session:
@@ -83,9 +83,9 @@ This mode listens on loopback only and has no password, like the terminal UI on 
 ### As a standalone daemon
 
 ```bash
-npm install -g .                 # provides the `pi-gui` command
+npm install -g .                 # provides the `pi-my-web` command
 # or run it straight from the clone:
-PI_GUI_PASSWORD=change-me node bin/pi-gui
+PI_MY_WEB_PASSWORD=change-me node bin/pi-my-web
 ```
 
 Then open <http://127.0.0.1:3847>.
@@ -93,40 +93,42 @@ Then open <http://127.0.0.1:3847>.
 #### Start at boot with systemd (user unit)
 
 ```bash
-mkdir -p ~/.config/pi-gui ~/.config/systemd/user
-cat > ~/.config/pi-gui/env <<'EOF'
-PI_GUI_PORT=3847
-PI_GUI_HOST=127.0.0.1
-PI_GUI_PASSWORD=change-me
+mkdir -p ~/.config/pi-my-web ~/.config/systemd/user
+cat > ~/.config/pi-my-web/env <<'EOF'
+PI_MY_WEB_PORT=3847
+PI_MY_WEB_HOST=127.0.0.1
+PI_MY_WEB_PASSWORD=change-me
 EOF
-chmod 600 ~/.config/pi-gui/env
+chmod 600 ~/.config/pi-my-web/env
 
-cp contrib/pi-gui.service ~/.config/systemd/user/
+cp contrib/pi-my-web.service ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now pi-gui
+systemctl --user enable --now pi-my-web
 loginctl enable-linger "$USER"   # keep running after you log out
-journalctl --user -u pi-gui -f   # logs
+journalctl --user -u pi-my-web -f   # logs
 ```
 
-If `pi-gui` is not on systemd's `PATH`, edit `ExecStart` in the unit to the full path of `bin/pi-gui`.
+If `pi-my-web` is not on systemd's `PATH`, edit `ExecStart` in the unit to the full path of `bin/pi-my-web`.
 
 ## Configuration
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `PI_GUI_PORT` | `3847` | HTTP port |
-| `PI_GUI_HOST` | `127.0.0.1` | Bind address |
-| `PI_GUI_PASSWORD` | *(unset)* | Enables login. When set, every `/api/*` call returns 401 until you sign in |
-| `PI_GUI_SESSION_IDLE_MS` | `86400000` (1 day) | Close a live session when no browser is attached (`0` disables) |
-| `PI_GUI_SESSIONS_DIR` | `~/.pi/agent/sessions` | Where stored sessions are read from |
-| `PI_GUI_ARCHIVE_DIR` | `~/.pi/agent/sessions-archive` | Where archived sessions are moved |
+| `PI_MY_WEB_PORT` | `3847` | HTTP port |
+| `PI_MY_WEB_HOST` | `127.0.0.1` | Bind address |
+| `PI_MY_WEB_PASSWORD` | *(unset)* | Enables login. When set, every `/api/*` call returns 401 until you sign in |
+| `PI_MY_WEB_SESSION_IDLE_MS` | `86400000` (1 day) | Close a live session when no browser is attached (`0` disables) |
+| `PI_MY_WEB_SESSIONS_DIR` | `~/.pi/agent/sessions` | Where stored sessions are read from |
+| `PI_MY_WEB_ARCHIVE_DIR` | `~/.pi/agent/sessions-archive` | Where archived sessions are moved |
+
+> Legacy `PI_GUI_*` names are still accepted as fallbacks. `/web` is an alias for `/gui`.
 
 Models, auth, skills and extensions come from pi itself. Set `PI_CODING_AGENT_DIR` to point pi at a different config directory.
 
 ## Security
 
 - The server binds to `127.0.0.1` by default. Keep it that way unless you need remote access.
-- If you bind another address, **always set `PI_GUI_PASSWORD`**. The UI can run commands and edit files through the agent, so an open port is remote code execution on your machine.
+- If you bind another address, **always set `PI_MY_WEB_PASSWORD`**. The UI can run commands and edit files through the agent, so an open port is remote code execution on your machine.
 - The password protects the app only; traffic is not encrypted. Do not expose it directly to the internet. Put it behind a reverse proxy with TLS (and ideally a VPN or SSH tunnel), for example `ssh -L 3847:127.0.0.1:3847 your-server`.
 - Logins are in-memory: restarting the daemon signs everyone out.
 
@@ -154,12 +156,12 @@ Coding agents: read [`llms.txt`](./llms.txt) first.
 
 ## 简体中文
 
-pi-gui 是 [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) 的网页界面，本仓库 fork 自 [ankitchouhan1020/pi-gui-extension](https://github.com/ankitchouhan1020/pi-gui-extension)（MIT）。
+pi-my-web 是 [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) 的网页界面，本仓库 fork 自 [ankitchouhan1020/pi-gui-extension](https://github.com/ankitchouhan1020/pi-gui-extension)（MIT）。
 
 **本 fork 新增：**
 
-- **独立守护进程**：`bin/pi-gui` 无需终端里的 pi 即可运行，可配合 systemd 开机自启（见上文）。
-- **密码登录**：设置 `PI_GUI_PASSWORD` 后需要登录（HttpOnly Cookie）。
+- **独立守护进程**：`bin/pi-my-web` 无需终端里的 pi 即可运行，可配合 systemd 开机自启（见上文）。
+- **密码登录**：设置 `PI_MY_WEB_PASSWORD` 后需要登录（HttpOnly Cookie）。
 - **中英文界面**：默认跟随浏览器语言，可在 *命令 → Appearance & language*（`Ctrl/⌘ + K`）中切换。
 - **8 套主题**：浅色、深色，以及 GitHub Light、Atom One Light、Solarized Light、One Dark Pro、Dracula、Tokyo Night（移植自 VS Code 官方主题）。
 - **详细的上下文 / Token 用量**：已用 / 窗口、输入、输出、缓存读写、合计、费用和模型。
@@ -169,9 +171,9 @@ pi-gui 是 [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) �
 **安装：**
 
 ```bash
-git clone https://github.com/BBDXF/pi-gui-extension.git && cd pi-gui-extension && npm install
-pi install /path/to/pi-gui-extension          # 在 pi 中使用 /gui
-PI_GUI_PASSWORD=你的密码 node bin/pi-gui        # 或作为独立服务运行，访问 http://127.0.0.1:3847
+git clone https://github.com/BBDXF/pi-my-web.git && cd pi-my-web && npm install
+pi install /path/to/pi-my-web          # 在 pi 中使用 /gui
+PI_MY_WEB_PASSWORD=你的密码 node bin/pi-my-web        # 或作为独立服务运行，访问 http://127.0.0.1:3847
 ```
 
-**安全提示：** 默认只监听 `127.0.0.1`。如需对外访问，必须设置 `PI_GUI_PASSWORD`，并放在带 TLS 的反向代理或 SSH 隧道之后；不要把端口直接暴露到公网，因为该界面可通过智能体执行命令、修改文件。
+**安全提示：** 默认只监听 `127.0.0.1`。如需对外访问，必须设置 `PI_MY_WEB_PASSWORD`，并放在带 TLS 的反向代理或 SSH 隧道之后；不要把端口直接暴露到公网，因为该界面可通过智能体执行命令、修改文件。

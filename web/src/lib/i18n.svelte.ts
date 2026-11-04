@@ -11,7 +11,7 @@ export const LOCALES: { id: Locale; label: string }[] = [
 ];
 
 const en = {
-  "app.name": "pi-gui",
+  "app.name": "pi-my-web",
   "common.dismiss": "Dismiss",
   "common.cancel": "Cancel",
   "common.delete": "Delete",
@@ -68,7 +68,7 @@ const en = {
   "usage.cost": "Cost",
   "usage.model": "Model",
   "usage.left": "{n}% left",
-  "login.title": "Sign in to pi-gui",
+  "login.title": "Sign in to pi-my-web",
   "login.subtitle": "Enter the password to continue.",
   "login.password": "Password",
   "login.submit": "Sign in",
@@ -120,7 +120,7 @@ const en = {
 export type MsgKey = keyof typeof en;
 
 const zh: Record<MsgKey, string> = {
-  "app.name": "pi-gui",
+  "app.name": "pi-my-web",
   "common.dismiss": "关闭",
   "common.cancel": "取消",
   "common.delete": "删除",
@@ -177,7 +177,7 @@ const zh: Record<MsgKey, string> = {
   "usage.cost": "费用",
   "usage.model": "模型",
   "usage.left": "剩余 {n}%",
-  "login.title": "登录 pi-gui",
+  "login.title": "登录 pi-my-web",
   "login.subtitle": "请输入密码以继续。",
   "login.password": "密码",
   "login.submit": "登录",

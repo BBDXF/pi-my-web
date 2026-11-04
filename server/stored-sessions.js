@@ -6,9 +6,9 @@ import path from "node:path";
 export function roots() {
   const agent = process.env.PI_CODING_AGENT_DIR || path.join(homedir(), ".pi", "agent");
   return {
-    live: path.resolve(process.env.PI_GUI_SESSIONS_DIR || path.join(agent, "sessions")),
+    live: path.resolve((process.env.PI_MY_WEB_SESSIONS_DIR ?? process.env.PI_GUI_SESSIONS_DIR) || path.join(agent, "sessions")),
     archive: path.resolve(
-      process.env.PI_GUI_ARCHIVE_DIR || path.join(agent, "sessions-archive"),
+      (process.env.PI_MY_WEB_ARCHIVE_DIR ?? process.env.PI_GUI_ARCHIVE_DIR) || path.join(agent, "sessions-archive"),
     ),
   };
 }
