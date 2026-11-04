@@ -24,9 +24,19 @@ if (!resolvable()) {
   }
   // Re-exec with the package's node_modules parent on NODE_PATH is not honored by ESM,
   // so register a resolver hook.
-  const { register } = await import("node:module");
+  const mod = await import("node:module");
   const target = pathToFileURL(join(hit, "/")).href;
-  const hook = `export async function resolve(s,c,n){if(s==="${PKG}")return{url:new URL("dist/index.js","${target}").href,shortCircuit:true};return n(s,c);}`;
-  register("data:text/javascript," + encodeURIComponent(hook));
+  const entry = new URL("dist/index.js", target).href;
+  if (typeof mod.registerHooks === "function") {
+    // Node >= 22.15 / 23.5: synchronous in-thread hooks (module.register is deprecated).
+    mod.registerHooks({
+      resolve(s, c, n) {
+        return s === PKG ? { url: entry, shortCircuit: true } : n(s, c);
+      },
+    });
+  } else {
+    const hook = `export async function resolve(s,c,n){if(s===${JSON.stringify(PKG)})return{url:${JSON.stringify(entry)},shortCircuit:true};return n(s,c);}`;
+    mod.register("data:text/javascript," + encodeURIComponent(hook));
+  }
 }
 await import("../server/cli.js");
