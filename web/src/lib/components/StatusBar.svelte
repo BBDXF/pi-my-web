@@ -10,6 +10,8 @@
   import TooltipTrigger from "agentic-ui-kit/components/ui/tooltip-trigger.svelte";
   import CircleDollarSign from "@lucide/svelte/icons/circle-dollar-sign";
   import Gauge from "@lucide/svelte/icons/gauge";
+  import { t } from "$lib/i18n.svelte";
+  import CommandIcon from "@lucide/svelte/icons/command";
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
 
@@ -21,6 +23,7 @@
     showExpandGit?: boolean;
     onExpandSidebar?: () => void;
     onExpandGit?: () => void;
+    onOpenPalette?: () => void;
   };
 
   let {
@@ -31,6 +34,7 @@
     showExpandGit = false,
     onExpandSidebar,
     onExpandGit,
+    onOpenPalette,
   }: Props = $props();
 
   let renaming = $state(false);
@@ -51,49 +55,64 @@
     Boolean(session.isCompacting || session.compacting || compactingLocal),
   );
 
-  const ctxPct = $derived.by(() => {
+  const u = $derived.by(() => {
     const cu = session.contextUsage ?? session.stats?.contextUsage;
-    return cu?.percent != null && !Number.isNaN(cu.percent) ? cu.percent : null;
+    const tk = session.stats?.tokens;
+    const rawCost = session.stats?.cost;
+    const statCost =
+      typeof rawCost === "number" ? rawCost : typeof rawCost === "object" ? rawCost?.total : undefined;
+    const num = (...v: (number | null | undefined)[]) =>
+      v.find((x) => typeof x === "number" && !Number.isNaN(x)) ?? null;
+    const used = num(session.usage?.contextTokens, session.contextTokens, cu?.tokens);
+    const win = num(session.usage?.contextWindow, session.contextWindow, cu?.contextWindow);
+    let pct = num(session.usage?.percent, session.percent, cu?.percent);
+    if (pct == null && used != null && win) pct = (used / win) * 100;
+    const m = session.usage?.model ?? session.model;
+    return {
+      used,
+      win,
+      pct,
+      input: num(session.usage?.input, session.input, tk?.input, session.stats?.inputTokens),
+      output: num(session.usage?.output, session.output, tk?.output, session.stats?.outputTokens),
+      cacheRead: num(session.usage?.cacheRead, session.cacheRead, tk?.cacheRead),
+      cacheWrite: num(session.usage?.cacheWrite, session.cacheWrite, tk?.cacheWrite),
+      total: num(session.usage?.totalTokens, session.totalTokens, tk?.total),
+      cost: num(session.usage?.cost, session.cost, statCost),
+      model: m ? (m.name ?? m.id ?? "") : "",
+    };
   });
+  const ctxPct = $derived(u.pct);
   /** Surface compact CTA when context is getting tight. */
   const nearLimit = $derived(ctxPct != null && ctxPct >= 80);
+  let popOpen = $state(false);
+  const hasUsage = $derived(u.pct != null || u.cost != null || u.total != null);
 
-  type MetaItem = {
-    kind: "context" | "cost";
-    value: string;
-    label: string;
-    warning?: boolean;
-  };
-
-  /** Keep the header focused on the two values that guide user decisions. */
-  const metaItems = $derived.by(() => {
-    const items: MetaItem[] = [];
-    if (ctxPct != null) {
-      const remaining = Math.max(0, Math.min(100, 100 - Math.round(ctxPct)));
-      items.push({
-        kind: "context",
-        value: `${remaining}% left`,
-        label: `${remaining}% of the context window remains before the conversation may need compacting.`,
-        warning: nearLimit,
-      });
-    }
-    const raw = session.stats?.cost;
-    const cost =
-      typeof raw === "number"
-        ? raw
-        : raw && typeof raw === "object" && typeof raw.total === "number"
-          ? raw.total
-          : null;
-    if (cost != null && !Number.isNaN(cost)) {
-      const value = cost < 0.01 ? `$${cost.toFixed(4)}` : `$${cost.toFixed(3)}`;
-      items.push({
-        kind: "cost",
-        value,
-        label: `Estimated cost for this session so far: ${value}.`,
-      });
-    }
-    return items;
-  });
+  function fmtTok(n: number | null) {
+    if (n == null) return "—";
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+    if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+    return String(Math.round(n));
+  }
+  function fmtCost(c: number | null) {
+    if (c == null) return "—";
+    return c < 0.01 ? `$${c.toFixed(4)}` : `$${c.toFixed(3)}`;
+  }
+  const headline = $derived(
+    [
+      u.used != null || u.win != null ? `${fmtTok(u.used)} / ${fmtTok(u.win)}` : null,
+      u.pct != null ? `${Math.round(u.pct)}%` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  );
+  const rows = $derived([
+    ["usage.input", fmtTok(u.input)],
+    ["usage.output", fmtTok(u.output)],
+    ["usage.cacheRead", fmtTok(u.cacheRead)],
+    ["usage.cacheWrite", fmtTok(u.cacheWrite)],
+    ["usage.total", fmtTok(u.total)],
+    ["usage.cost", fmtCost(u.cost)],
+  ] as const);
 
   async function doCompact() {
     if (!session.id || isCompacting) return;
@@ -158,12 +177,24 @@
       variant="ghost"
       size="icon"
       class="size-8 shrink-0 text-muted-foreground"
-      title="Expand sidebar"
-      aria-label="Expand sidebar"
+      title={t("sidebar.expand")}
+      aria-label={t("sidebar.expand")}
       onclick={onExpandSidebar}
     >
       <PanelLeft class="size-4" />
     </Button>
+  {/if}
+
+{#if showExpandSidebar && onOpenPalette}
+    <button
+      type="button"
+      class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      title={t("sidebar.commandPalette")}
+      aria-label={t("sidebar.commandPalette")}
+      onclick={onOpenPalette}
+    >
+      <CommandIcon class="size-4" />
+    </button>
   {/if}
 
   <div class="min-w-0 flex-1">
@@ -178,7 +209,7 @@
       <button
         type="button"
         class="flex min-w-0 max-w-full items-baseline gap-2 text-left"
-        title="Double-click to rename"
+        title={t("status.rename")}
         ondblclick={startRename}
       >
         <span class="truncate text-sm font-semibold">{title}</span>
@@ -192,35 +223,54 @@
   </div>
 
   <div class="flex shrink-0 items-center gap-2">
-    {#if metaItems.length}
-      <div class="flex items-center gap-1" aria-label="Session usage">
-        {#each metaItems as item (item.kind)}
-          <Tooltip>
-            <TooltipTrigger>
-              {#snippet child({ props })}
-                <span {...props} class="inline-flex">
-                  <Badge
-                    variant="outline"
-                    class="h-6 gap-1 border-border/70 bg-background/60 px-1.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground shadow-none {item.warning
-                      ? 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                      : ''}"
-                    aria-label={item.label}
-                  >
-                    {#if item.kind === "cost"}
-                      <CircleDollarSign class="size-3" />
-                    {:else}
-                      <Gauge class="size-3" />
-                    {/if}
-                    <span>{item.value}</span>
-                  </Badge>
-                </span>
-              {/snippet}
-            </TooltipTrigger>
-            <TooltipContent side="bottom" class="max-w-64 text-center">
-              {item.label}
-            </TooltipContent>
-          </Tooltip>
-        {/each}
+    {#if hasUsage}
+      <div
+        class="relative"
+        role="group"
+        aria-label={t("status.usage")}
+        onmouseenter={() => (popOpen = true)}
+        onmouseleave={() => (popOpen = false)}
+      >
+        <button
+          type="button"
+          class="inline-flex h-6 items-center gap-1 rounded-md border px-1.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground transition-colors hover:bg-muted {nearLimit
+            ? 'border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+            : 'border-border/70'}"
+          aria-expanded={popOpen}
+          onclick={() => (popOpen = !popOpen)}
+        >
+          <Gauge class="size-3" />
+          <span>{headline || fmtCost(u.cost)}</span>
+          {#if u.cost != null && headline}
+            <span class="hidden opacity-70 sm:inline">· {fmtCost(u.cost)}</span>
+          {/if}
+        </button>
+        {#if popOpen}
+          <div class="absolute right-0 top-full z-40 pt-1.5">
+            <div class="w-60 rounded-xl border border-border bg-popover p-3 text-xs text-popover-foreground shadow-xl">
+              <div class="mb-1 flex items-baseline justify-between">
+                <span class="font-medium">{t("usage.context")}</span>
+                <span class="font-mono tabular-nums">{headline || "—"}</span>
+              </div>
+              <div class="mb-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  class="h-full rounded-full {nearLimit ? 'bg-amber-500' : 'bg-primary'}"
+                  style="width:{Math.min(100, Math.max(0, u.pct ?? 0))}%"
+                ></div>
+              </div>
+              <dl class="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
+                {#each rows as [k, v] (k)}
+                  <dt class="text-muted-foreground">{t(k)}</dt>
+                  <dd class="text-right font-mono tabular-nums">{v}</dd>
+                {/each}
+                {#if u.model}
+                  <dt class="text-muted-foreground">{t("usage.model")}</dt>
+                  <dd class="max-w-32 truncate text-right font-mono" title={u.model}>{u.model}</dd>
+                {/if}
+              </dl>
+            </div>
+          </div>
+        {/if}
       </div>
     {/if}
     {#if nearLimit && !isCompacting}
@@ -231,22 +281,22 @@
         class="h-6 px-2 text-[10px] {ctxPct != null && ctxPct >= 95
           ? 'border-amber-500/60 text-amber-700 dark:text-amber-400'
           : ''}"
-        title="Compact"
+        title={t("status.compact")}
         onclick={doCompact}
       >
-        Compact
+        {t('status.compact')}
       </Button>
     {/if}
     {#if isCompacting}
-      <Badge variant="secondary" class="h-6 text-[10px]">compacting</Badge>
+      <Badge variant="secondary" class="h-6 text-[10px]">{t('status.compacting')}</Badge>
     {/if}
     {#if showExpandGit && onExpandGit}
       <Button
         variant="ghost"
         size="icon"
         class="size-8 shrink-0 text-muted-foreground"
-        title="Show changes"
-        aria-label="Show git changes sidebar"
+        title={t("status.showChanges")}
+        aria-label={t("status.showChanges")}
         onclick={onExpandGit}
       >
         <PanelRight class="size-4" />

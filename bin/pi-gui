@@ -1,0 +1,32 @@
+#!/usr/bin/env node
+// Standalone pi-gui daemon. Env: PI_GUI_PORT (3847), PI_GUI_HOST (127.0.0.1), PI_GUI_PASSWORD.
+// Flags: --port N, --host H. Resolves pi-coding-agent from a global install if not local.
+import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+import { pathToFileURL } from "node:url";
+
+const PKG = "@earendil-works/pi-coding-agent";
+const here = import.meta.url;
+function resolvable() {
+  try { createRequire(here).resolve(PKG); return true; } catch { return false; }
+}
+if (!resolvable()) {
+  const cands = [];
+  try { cands.push(join(execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim(), PKG)); } catch {}
+  cands.push(join(homedir(), ".pi/agent/npm/node_modules", PKG));
+  const hit = cands.find((c) => existsSync(join(c, "package.json")));
+  if (!hit) {
+    console.error(`[pi-gui] cannot find ${PKG}; install it (npm i -g ${PKG})`);
+    process.exit(1);
+  }
+  // Re-exec with the package's node_modules parent on NODE_PATH is not honored by ESM,
+  // so register a resolver hook.
+  const { register } = await import("node:module");
+  const target = pathToFileURL(join(hit, "/")).href;
+  const hook = `export async function resolve(s,c,n){if(s==="${PKG}")return{url:new URL("dist/index.js","${target}").href,shortCircuit:true};return n(s,c);}`;
+  register("data:text/javascript," + encodeURIComponent(hook));
+}
+await import("../server/cli.js");

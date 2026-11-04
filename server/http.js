@@ -4,12 +4,14 @@
  */
 import http from "node:http";
 import { execFile } from "node:child_process";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat, realpath } from "node:fs/promises";
 import { createReadStream, existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { hub } from "./hub.js";
+import { createAuth } from "./auth.js";
+import { listStored, moveStored, deleteStored } from "./stored-sessions.js";
 import { assetStream, loadCustomization } from "./customization.js";
 import {
   connectedPayload,
@@ -68,18 +70,29 @@ async function listFsDirs(dirPath) {
   };
 }
 
+const GIT_MAX_FILES = 1000;
+const GIT_TIMEOUT_MS = 5000;
+const GIT_MAX_PATCH_CHARS = 512 * 1024;
+
 /**
  * Run git in cwd. Non-zero exit still returns stdout (e.g. diff --no-index).
  * @param {string} cwd
  * @param {string[]} args
- * @returns {Promise<{ code: number; stdout: string; stderr: string }>}
+ * @returns {Promise<{ code: number; timedOut: boolean; stdout: string; stderr: string }>}
  */
-function runGit(cwd, args) {
+function runGit(cwd, args, timeoutMs = GIT_TIMEOUT_MS) {
   return new Promise((resolve) => {
     execFile(
       "git",
       args,
-      { cwd, maxBuffer: 12 * 1024 * 1024, encoding: "utf8" },
+      {
+        cwd,
+        maxBuffer: 12 * 1024 * 1024,
+        encoding: "utf8",
+        timeout: timeoutMs,
+        killSignal: "SIGKILL",
+        env: { ...process.env, GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" },
+      },
       (err, stdout, stderr) => {
         const code =
           err && typeof /** @type {{ code?: unknown }} */ (err).code === "number"
@@ -89,6 +102,7 @@ function runGit(cwd, args) {
               : 0;
         resolve({
           code,
+          timedOut: !!(err && /** @type {{ killed?: boolean }} */ (err).killed),
           stdout: typeof stdout === "string" ? stdout : "",
           stderr: typeof stderr === "string" ? stderr : "",
         });
@@ -156,19 +170,66 @@ function resolveUnderCwd(cwd, rel) {
  * @param {string} cwd
  */
 async function gitStatus(cwd) {
-  const inside = await runGit(cwd, ["rev-parse", "--is-inside-work-tree"]);
-  if (inside.code !== 0 || inside.stdout.trim() !== "true") {
-    return { ok: false, error: "Not a git repository", cwd, files: [] };
+  const top = await runGit(cwd, ["rev-parse", "--show-toplevel", "--show-prefix"], 3000);
+  if (top.timedOut) {
+    return { ok: false, code: "timeout", error: "Git is too slow in this folder", cwd, files: [] };
+  }
+  const [toplevel = "", prefixRaw = ""] = top.stdout.split("\n");
+  if (top.code !== 0 || !toplevel) {
+    return { ok: false, code: "not_git", error: "Not a git repository", cwd, files: [] };
+  }
+  const prefix = prefixRaw.trim();
+  let real = cwd;
+  try {
+    real = await realpath(cwd);
+  } catch {
+    /* keep cwd */
+  }
+  const sameRoot = path.resolve(toplevel) === path.resolve(real);
+  if (
+    !sameRoot &&
+    (path.resolve(toplevel) === path.resolve(os.homedir()) ||
+      path.resolve(toplevel) === path.parse(toplevel).root)
+  ) {
+    return {
+      ok: false,
+      code: "parent_repo",
+      error: "Not a project repository (this folder is inside a very large parent repo)",
+      toplevel,
+      cwd,
+      files: [],
+    };
   }
   const [branchR, porcR] = await Promise.all([
     runGit(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]),
-    runGit(cwd, ["status", "--porcelain=v1", "-uall"]),
+    runGit(cwd, ["status", "--porcelain=v1", "-unormal", "--", "."]),
   ]);
+  if (porcR.timedOut || branchR.timedOut) {
+    return {
+      ok: false,
+      code: "timeout",
+      error: "Git status is too slow / the repository is too large to show changes",
+      cwd,
+      files: [],
+    };
+  }
+  const all = parsePorcelain(porcR.stdout);
+  if (prefix) {
+    // porcelain paths are repo-root relative; make them cwd-relative
+    const strip = (/** @type {string} */ q) => (q.startsWith(prefix) ? q.slice(prefix.length) : q);
+    for (const f of all) {
+      f.path = strip(f.path);
+      if (f.oldPath) f.oldPath = strip(f.oldPath);
+    }
+  }
   return {
+    ...(prefix ? { subdir: prefix, toplevel } : {}),
     ok: true,
     cwd,
     branch: branchR.stdout.trim() || "HEAD",
-    files: parsePorcelain(porcR.stdout),
+    files: all.length > GIT_MAX_FILES ? all.slice(0, GIT_MAX_FILES) : all,
+    total: all.length,
+    truncated: all.length > GIT_MAX_FILES,
   };
 }
 
@@ -178,7 +239,30 @@ async function gitStatus(cwd) {
  * @param {string} filePath
  */
 async function gitFileDiff(cwd, filePath) {
+  const res = await gitFileDiffRaw(cwd, filePath);
+  let patch = res.patch;
+  if (patch.length > GIT_MAX_PATCH_CHARS) {
+    const cut = patch.lastIndexOf("\n", GIT_MAX_PATCH_CHARS);
+    patch = patch.slice(0, cut > 0 ? cut : GIT_MAX_PATCH_CHARS);
+    return { path: res.path, patch, truncated: true, originalSize: res.patch.length };
+  }
+  return res;
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} filePath
+ */
+async function gitFileDiffRaw(cwd, filePath) {
   const { rel } = resolveUnderCwd(cwd, filePath);
+  // Untracked directories / nested repos show up as "dir/": nothing to diff.
+  if (String(filePath).endsWith("/")) return { path: rel, patch: "", note: "directory" };
+  try {
+    const st = await stat(path.resolve(cwd, rel));
+    if (st.isDirectory()) return { path: rel, patch: "", note: "directory" };
+  } catch {
+    /* deleted file: fall through */
+  }
   const vsHead = await runGit(cwd, ["diff", "HEAD", "--", rel]);
   if (vsHead.stdout) {
     return { path: rel, patch: vsHead.stdout };
@@ -332,6 +416,9 @@ function lastEventIdFrom(req, searchParams) {
  * @param {http.IncomingMessage} req
  * @param {http.ServerResponse} res
  */
+/** Active auth for this process's server (set in createServer). */
+let auth = createAuth({ password: "" });
+
 async function handleApi(req, res) {
   const { pathname, searchParams } = parsePath(req.url || "/");
   const method = req.method || "GET";
@@ -347,6 +434,56 @@ async function handleApi(req, res) {
   }
 
   try {
+    // --- auth ---
+    if (pathname === "/api/auth/status" && method === "GET") {
+      return json(res, 200, {
+        required: auth.required,
+        authenticated: auth.isAuthenticated(req),
+      });
+    }
+    if (pathname === "/api/auth/login" && method === "POST") {
+      const body = await readJson(req).catch(() => ({}));
+      const cookie = auth.login(body?.password);
+      if (!cookie) return json(res, 401, { error: "Invalid password" });
+      res.setHeader("Set-Cookie", cookie);
+      return json(res, 200, { ok: true });
+    }
+    if (pathname === "/api/auth/logout" && method === "POST") {
+      res.setHeader("Set-Cookie", auth.logout(req));
+      return json(res, 200, { ok: true });
+    }
+    if (!auth.isAuthenticated(req)) {
+      return json(res, 401, { error: "Unauthorized" });
+    }
+
+    // --- stored (persisted) sessions ---
+    if (pathname === "/api/sessions/stored") {
+      try {
+        if (method === "GET") {
+          const sessions = await listStored(searchParams.get("archived") === "1");
+          return json(res, 200, { sessions });
+        }
+        if (method === "DELETE") {
+          const body = await readJson(req);
+          return json(res, 200, await deleteStored(body.path));
+        }
+      } catch (e) {
+        return json(res, e?.status || 500, { error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    if (
+      method === "POST" &&
+      (pathname === "/api/sessions/stored/archive" ||
+        pathname === "/api/sessions/stored/unarchive")
+    ) {
+      try {
+        const body = await readJson(req);
+        return json(res, 200, await moveStored(body.path, pathname.endsWith("/archive")));
+      } catch (e) {
+        return json(res, e?.status || 500, { error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+
     // GET /api/health
     if (method === "GET" && pathname === "/api/health") {
       return json(res, 200, {
@@ -987,6 +1124,8 @@ export function createServer(opts = {}) {
   const port = opts.port ?? Number(process.env.PI_GUI_PORT || 3847);
   const stayAlive = Boolean(opts.stayAlive);
   hostCtl.stayAlive = stayAlive;
+  const host = opts.host ?? (process.env.PI_GUI_HOST || "127.0.0.1");
+  auth = createAuth({ password: opts.password });
 
   const server = http.createServer((req, res) => {
     // Never let a handler kill the process
@@ -1020,8 +1159,8 @@ export function createServer(opts = {}) {
     stayAlive,
     /** @param {() => void} [cb] */
     listen(cb) {
-      server.listen(port, "127.0.0.1", () => {
-        console.log(`[pi-gui] http://127.0.0.1:${port}`);
+      server.listen(port, host, () => {
+        console.log(`[pi-gui] http://${host}:${port}`);
         cb?.();
       });
       return server;

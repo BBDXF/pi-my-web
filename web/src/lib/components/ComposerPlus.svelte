@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tr } from "$lib/i18n.svelte";
   import Plus from "@lucide/svelte/icons/plus";
   import Upload from "@lucide/svelte/icons/upload";
   import { DropdownMenu } from "bits-ui";
@@ -42,8 +43,8 @@
         type="button"
         {disabled}
         class="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-border/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-        aria-label="Add"
-        title="Add"
+        aria-label={tr("Add")}
+        title={tr("Add")}
       >
         <Plus class="size-3.5" />
       </button>

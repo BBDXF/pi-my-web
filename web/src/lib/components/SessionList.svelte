@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import type { SessionRow } from "$lib/api";
   import Separator from "agentic-ui-kit/components/ui/separator.svelte";
-  import ThemeToggle from "agentic-ui-kit/components/ui/theme-toggle.svelte";
+  import { t } from "$lib/i18n.svelte";
   import SoundToggle from "$lib/components/SoundToggle.svelte";
   import Plus from "@lucide/svelte/icons/plus";
   import Folder from "@lucide/svelte/icons/folder";
@@ -246,7 +246,7 @@
   }
 
   function folderLabel(cwd: string) {
-    if (!cwd) return "Other";
+    if (!cwd) return t("common.other");
     const segs = cwd.split("/").filter(Boolean);
     return segs.at(-1) || cwd;
   }
@@ -361,13 +361,12 @@
     </div>
     <div class="flex shrink-0 items-center gap-0.5">
       <SoundToggle />
-      <ThemeToggle mode="toggle" />
       {#if onCollapse}
         <button
           type="button"
           class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title="Collapse sidebar"
-          aria-label="Collapse sidebar"
+          title={t("sidebar.collapse")}
+          aria-label={t("sidebar.collapse")}
           onclick={onCollapse}
         >
           <PanelLeftClose class="size-4" />
@@ -385,17 +384,17 @@
         onclick={() => onNew()}
       >
         <MessageSquarePlus class="size-3.5 shrink-0 text-muted-foreground" />
-        <span class="min-w-0 flex-1 truncate">New session</span>
+        <span class="min-w-0 flex-1 truncate">{t("sidebar.newSession")}</span>
       </button>
 
       <Separator class="my-1.5" />
       <div class="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        Sessions
+        {t("sidebar.sessions")}
       </div>
 
       {#if openSessions.length === 0}
         <div class="px-2 py-6 text-center text-xs text-muted-foreground">
-          {listReady ? "No open sessions" : "Loading"}
+          {listReady ? t("sidebar.noOpen") : t("common.loading")}
         </div>
       {:else}
         {#each groups as g (g.key)}
@@ -430,8 +429,8 @@
                 <button
                   type="button"
                   class="flex size-6 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
-                  title="Drag to reorder"
-                  aria-label="Drag to reorder {g.name}"
+                  title={t("sidebar.dragReorder")}
+                  aria-label={t("sidebar.dragReorder")}
                   draggable="true"
                   ondragstart={(e) => onFolderDragStart(e, g.key)}
                   ondragend={onDragEnd}
@@ -442,8 +441,8 @@
                   <button
                     type="button"
                     class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                    title="New session in {g.name}"
-                    aria-label="New session in {g.name}"
+                    title={t("sidebar.newIn",{name:g.name})}
+                    aria-label={t("sidebar.newIn",{name:g.name})}
                     onclick={() => onNew(g.cwd)}
                   >
                     <Plus class="size-3.5" />
@@ -472,14 +471,14 @@
                           {#if s.streaming}
                             <span
                               class="size-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500"
-                              title="Streaming"
-                              aria-label="Streaming"
+                              title={t("sidebar.streaming")}
+                              aria-label={t("sidebar.streaming")}
                             ></span>
                           {:else if s.bound}
                             <span
                               class="size-1.5 shrink-0 rounded-full bg-sky-500"
-                              title="Live TUI session"
-                              aria-label="Live TUI session"
+                              title={t("sidebar.liveTui")}
+                              aria-label={t("sidebar.liveTui")}
                             ></span>
                           {/if}
                           <span class="min-w-0 flex-1 truncate text-xs font-medium">{label(s)}</span>
@@ -495,8 +494,8 @@
                         <button
                           type="button"
                           class="flex size-6 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
-                          title="Drag to reorder"
-                          aria-label="Drag to reorder session"
+                          title={t("sidebar.dragReorder")}
+                          aria-label={t("sidebar.dragReorder")}
                           draggable="true"
                           ondragstart={(e) => onSessionDragStart(e, s, g.key)}
                           ondragend={onDragEnd}
@@ -506,8 +505,8 @@
                         <button
                           type="button"
                           class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                          title="Move to Recent"
-                          aria-label="Move to Recent"
+                          title={t("sidebar.moveRecent")}
+                          aria-label={t("sidebar.moveRecent")}
                           onclick={(e) => moveToRecent(s, e)}
                         >
                           <Archive class="size-3.5" />
@@ -535,7 +534,7 @@
               ? 'rotate-90'
               : ''}"
           />
-          <span class="min-w-0 flex-1">Recent</span>
+          <span class="min-w-0 flex-1">{t("sidebar.recent")}</span>
         </button>
         {#if recentOpen}
           <ul class="ml-3 flex flex-col gap-0.5 border-l border-border pl-2">
@@ -548,7 +547,7 @@
                   <button
                     type="button"
                     class="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-left"
-                    title="Resume session"
+                    title={t("sidebar.resume")}
                     onclick={() => selectSession(s)}
                   >
                     <span class="block min-w-0 truncate text-xs font-medium text-muted-foreground">
@@ -565,7 +564,7 @@
               class="mt-1 ml-3 w-[calc(100%-0.75rem)] rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
               onclick={showMoreRecent}
             >
-              Show more
+              {t("sidebar.showMore")}
             </button>
           {/if}
         {/if}
@@ -577,11 +576,11 @@
       <button
         type="button"
         class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-        title="Command palette"
+        title={t("sidebar.commandPalette")}
         onclick={onOpenPalette}
       >
         <Command class="size-3.5 shrink-0" />
-        <span class="min-w-0 flex-1 truncate">Commands</span>
+        <span class="min-w-0 flex-1 truncate">{t("sidebar.commands")}</span>
         <kbd
           class="pointer-events-none hidden shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline"
         >
@@ -593,7 +592,7 @@
   <div
     role="separator"
     aria-orientation="vertical"
-    aria-label="Resize sidebar"
+    aria-label={t("sidebar.resize")}
     aria-valuemin={WIDTH_MIN}
     aria-valuemax={WIDTH_MAX}
     aria-valuenow={width}

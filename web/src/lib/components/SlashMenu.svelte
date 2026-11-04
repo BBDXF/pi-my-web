@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tr } from "$lib/i18n.svelte";
   import type { SlashCommandInfo } from "$lib/api";
 
   type Props = {
@@ -29,7 +30,7 @@
   <div
     class="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
     role="listbox"
-    aria-label="Slash commands"
+    aria-label={tr("Slash commands")}
   >
     {#each items as cmd, i (cmd.source + ":" + cmd.name)}
       <button

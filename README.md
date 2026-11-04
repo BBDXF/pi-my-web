@@ -6,6 +6,19 @@ Pi extension for a localhost multi-session web UI over the same coding-agent SDK
 <img width="2940" height="1846" alt="pi-gui" src="https://github.com/user-attachments/assets/e1da0c5c-fe19-445e-9f07-24625eeef5f9" />
 
 
+## Fork changes (BBDXF)
+
+This fork of [ankitchouhan1020/pi-gui-extension](https://github.com/ankitchouhan1020/pi-gui-extension) adds:
+
+- **Standalone daemon**: `bin/pi-gui` runs the server without a TUI pi (`PI_GUI_PORT`, `PI_GUI_HOST`); `contrib/pi-gui.service` is a systemd user unit for start at boot.
+- **Password auth**: set `PI_GUI_PASSWORD` to require a login (HttpOnly cookie). Unset = no auth, as upstream.
+- **i18n**: English / 简体中文, switchable in the command menu ("Appearance & language").
+- **Themes**: Dark, Light, Tokyo Night, Catppuccin Mocha/Latte, Gruvbox, Nord, One Dark.
+- **Detailed context/token usage**: used / window tokens, input, output, cache read/write, total, cost and model instead of a bare percentage.
+- **Session manager**: browse stored sessions, open, archive/unarchive (`~/.pi/agent/sessions-archive`), delete.
+- **Git panel fixes**: no more tab freeze on large diffs (highlight/size caps), 5 s git timeout, collapsed untracked dirs, correct paths in repo subfolders, clear notices for unsupported folders.
+- Removed the Quit command; settings, session manager and logout live in the command menu.
+
 ## Install
 
 ```bash
@@ -76,3 +89,18 @@ npm install --prefix docs
 npm run dev:docs       # local docs server
 npm run build:docs     # TanStack Start build in docs/dist/
 ```
+
+## Standalone daemon (systemd)
+
+```bash
+npm i -g pi-gui-extension            # provides `pi-gui`
+mkdir -p ~/.config/pi-gui ~/.config/systemd/user
+printf 'PI_GUI_PORT=3847\nPI_GUI_HOST=127.0.0.1\nPI_GUI_PASSWORD=change-me\n' > ~/.config/pi-gui/env
+chmod 600 ~/.config/pi-gui/env
+cp contrib/pi-gui.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now pi-gui
+loginctl enable-linger "$USER"       # keep running after logout
+```
+
+Env: `PI_GUI_PORT` (3847), `PI_GUI_HOST` (127.0.0.1), `PI_GUI_PASSWORD` (enables login; all `/api/*` return 401 until `POST /api/auth/login`). Set a password before binding a non-loopback host. The in-pi `/gui` command still works (loopback, no password).

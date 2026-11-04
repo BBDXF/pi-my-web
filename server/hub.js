@@ -1829,6 +1829,26 @@ export class SessionHub {
     return s;
   }
 
+  /** Flat token/context usage for the UI. */
+  #usage(sess) {
+    const st = sess.getSessionStats();
+    const cu = sess.getContextUsage();
+    return {
+      contextTokens: cu?.tokens ?? null,
+      contextWindow: cu?.contextWindow ?? sess.model?.contextWindow ?? null,
+      percent: cu?.percent ?? null,
+      input: st.tokens.input,
+      output: st.tokens.output,
+      cacheRead: st.tokens.cacheRead,
+      cacheWrite: st.tokens.cacheWrite,
+      totalTokens: st.tokens.total,
+      cost: st.cost,
+      model: sess.model
+        ? { provider: sess.model.provider, id: sess.model.id, name: sess.model.name }
+        : null,
+    };
+  }
+
   /** @param {OpenSession} s */
   #meta(s) {
     const sess = s.session;
@@ -1846,6 +1866,7 @@ export class SessionHub {
       thinkingLevel: sess.thinkingLevel,
       stats: sess.getSessionStats(),
       contextUsage: sess.getContextUsage(),
+      usage: this.#usage(sess),
       activeTools: sess.getActiveToolNames(),
       isCompacting: sess.isCompacting,
       isBashRunning: sess.isBashRunning,

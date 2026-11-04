@@ -1,0 +1,234 @@
+import { zhLiterals } from "./i18n-literals";
+
+/** Tiny i18n: English + 简体中文. Persisted in localStorage; default from navigator.language. */
+
+export type Locale = "en" | "zh-CN";
+const KEY = "pi-gui-locale";
+
+export const LOCALES: { id: Locale; label: string }[] = [
+  { id: "en", label: "English" },
+  { id: "zh-CN", label: "简体中文" },
+];
+
+const en = {
+  "app.name": "pi-gui",
+  "common.dismiss": "Dismiss",
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
+  "common.close": "Close",
+  "common.loading": "Loading",
+  "common.search": "Search",
+  "common.other": "Other",
+  "common.untitled": "Untitled",
+  "sidebar.newSession": "New session",
+  "sidebar.sessions": "Sessions",
+  "sidebar.noOpen": "No open sessions",
+  "sidebar.recent": "Recent",
+  "sidebar.showMore": "Show more",
+  "sidebar.collapse": "Collapse sidebar",
+  "sidebar.expand": "Expand sidebar",
+  "sidebar.commands": "Commands",
+  "sidebar.commandPalette": "Command palette",
+  "sidebar.dragReorder": "Drag to reorder",
+  "sidebar.newIn": "New session in {name}",
+  "sidebar.moveRecent": "Move to Recent",
+  "sidebar.resume": "Resume session",
+  "sidebar.streaming": "Streaming",
+  "sidebar.liveTui": "Live TUI session",
+  "sidebar.manage": "Manage sessions",
+  "sidebar.settings": "Settings",
+  "sidebar.logout": "Log out",
+  "sidebar.resize": "Resize sidebar",
+  "status.rename": "Double-click to rename",
+  "status.compact": "Compact",
+  "status.compacting": "compacting",
+  "status.showChanges": "Show changes",
+  "status.usage": "Session usage",
+  "usage.context": "Context",
+  "usage.used": "Used",
+  "usage.input": "Input",
+  "usage.output": "Output",
+  "usage.cacheRead": "Cache read",
+  "usage.cacheWrite": "Cache write",
+  "usage.total": "Total",
+  "usage.cost": "Cost",
+  "usage.model": "Model",
+  "usage.left": "{n}% left",
+  "login.title": "Sign in to pi-gui",
+  "login.subtitle": "Enter the password to continue.",
+  "login.password": "Password",
+  "login.submit": "Sign in",
+  "login.failed": "Incorrect password",
+  "settings.title": "Settings",
+  "settings.language": "Language",
+  "settings.theme": "Theme",
+  "settings.themeHint": "Applies instantly and is remembered on this device.",
+  "mgr.title": "Session manager",
+  "mgr.active": "Active",
+  "mgr.archived": "Archived",
+  "mgr.search": "Search by name, message or folder",
+  "mgr.empty": "No sessions found",
+  "mgr.unavailable": "Session storage API is unavailable on this server.",
+  "mgr.open": "Open",
+  "mgr.archive": "Archive",
+  "mgr.unarchive": "Restore",
+  "mgr.delete": "Delete",
+  "mgr.messages": "{n} messages",
+  "mgr.confirmTitle": "Delete this session?",
+  "mgr.confirmBody": "This permanently removes the session file. This cannot be undone.",
+  "mgr.back": "Back to chat",
+  "app.notAvailable": "/{name} is not available in the GUI yet",
+  "app.openToShare": "Open a session to share",
+  "app.notFound": "Session not found",
+  "app.shareUrl": "Share URL",
+  "app.cloneEmpty": "Nothing to clone yet — send a message first",
+  "chat.suggestHint": "Suggestions fill the prompt — nothing sends until you choose.",
+  "chat.showEarlier": "Show earlier {n} messages",
+  "chat.editMessage": "Edit message · sending starts a new branch",
+  "git.notGit": "This folder is not a git repository",
+  "git.notGitHint": "Initialize git here or open a session in a project folder to see its changes.",
+  "git.parentRepo": "Not a project repository",
+  "git.parentRepoHint": "This folder is only part of a very large parent repository ({root}). Scanning it is skipped to keep the page responsive.",
+  "git.timeout": "Too slow or too large",
+  "git.timeoutHint": "Git did not answer within 5 seconds, so the repository is too large to show changes here.",
+  "git.genericError": "Could not load changes",
+  "git.subdir": "Showing only changes under {dir} (repository root: {root}).",
+  "git.dirNoDiff": "This entry is a folder (untracked directory or nested repository), so there is no single diff to show. Open it as its own project to see its changes.",
+  "git.emptyDiff": "Empty diff (binary, too large, or no textual changes).",
+  "git.diffTruncated": "Diff truncated{more} — too large to display in full.",
+  "git.moreHidden": " ({n} more lines hidden)",
+  "git.filesTruncated": "Showing first {n} of {total} changed files.",
+  "git.noSession": "Open a session to see git changes for its folder.",
+} as const;
+
+export type MsgKey = keyof typeof en;
+
+const zh: Record<MsgKey, string> = {
+  "app.name": "pi-gui",
+  "common.dismiss": "关闭",
+  "common.cancel": "取消",
+  "common.delete": "删除",
+  "common.close": "关闭",
+  "common.loading": "加载中",
+  "common.search": "搜索",
+  "common.other": "其他",
+  "common.untitled": "未命名",
+  "sidebar.newSession": "新建会话",
+  "sidebar.sessions": "会话",
+  "sidebar.noOpen": "没有打开的会话",
+  "sidebar.recent": "最近",
+  "sidebar.showMore": "显示更多",
+  "sidebar.collapse": "收起侧边栏",
+  "sidebar.expand": "展开侧边栏",
+  "sidebar.commands": "命令",
+  "sidebar.commandPalette": "命令面板",
+  "sidebar.dragReorder": "拖动排序",
+  "sidebar.newIn": "在 {name} 中新建会话",
+  "sidebar.moveRecent": "移到“最近”",
+  "sidebar.resume": "恢复会话",
+  "sidebar.streaming": "生成中",
+  "sidebar.liveTui": "实时 TUI 会话",
+  "sidebar.manage": "会话管理",
+  "sidebar.settings": "设置",
+  "sidebar.logout": "退出登录",
+  "sidebar.resize": "调整侧边栏宽度",
+  "status.rename": "双击重命名",
+  "status.compact": "压缩",
+  "status.compacting": "压缩中",
+  "status.showChanges": "显示更改",
+  "status.usage": "会话用量",
+  "usage.context": "上下文",
+  "usage.used": "已用",
+  "usage.input": "输入",
+  "usage.output": "输出",
+  "usage.cacheRead": "缓存读取",
+  "usage.cacheWrite": "缓存写入",
+  "usage.total": "合计",
+  "usage.cost": "费用",
+  "usage.model": "模型",
+  "usage.left": "剩余 {n}%",
+  "login.title": "登录 pi-gui",
+  "login.subtitle": "请输入密码以继续。",
+  "login.password": "密码",
+  "login.submit": "登录",
+  "login.failed": "密码错误",
+  "settings.title": "设置",
+  "settings.language": "语言",
+  "settings.theme": "主题",
+  "settings.themeHint": "立即生效，并保存在此设备上。",
+  "mgr.title": "会话管理",
+  "mgr.active": "活跃",
+  "mgr.archived": "已归档",
+  "mgr.search": "按名称、消息或目录搜索",
+  "mgr.empty": "没有找到会话",
+  "mgr.unavailable": "此服务器不支持会话存储接口。",
+  "mgr.open": "打开",
+  "mgr.archive": "归档",
+  "mgr.unarchive": "恢复",
+  "mgr.delete": "删除",
+  "mgr.messages": "{n} 条消息",
+  "mgr.confirmTitle": "删除此会话？",
+  "mgr.confirmBody": "这会永久删除会话文件，无法撤销。",
+  "mgr.back": "返回聊天",
+  "app.notAvailable": "/{name} 暂不支持在 GUI 中使用",
+  "app.openToShare": "请先打开一个会话再分享",
+  "app.notFound": "未找到会话",
+  "app.shareUrl": "分享链接",
+  "app.cloneEmpty": "暂无可克隆内容 — 请先发送一条消息",
+  "chat.suggestHint": "建议只会填入输入框 — 你确认后才会发送。",
+  "chat.showEarlier": "显示更早的 {n} 条消息",
+  "chat.editMessage": "编辑消息 · 发送将开启新分支",
+  "git.notGit": "此文件夹不是 git 仓库",
+  "git.notGitHint": "请在此处初始化 git，或在项目文件夹中打开会话以查看更改。",
+  "git.parentRepo": "这不是一个项目仓库",
+  "git.parentRepoHint": "此文件夹只是一个超大父仓库（{root}）的一部分。为保持页面流畅，已跳过扫描。",
+  "git.timeout": "仓库过慢或过大",
+  "git.timeoutHint": "Git 在 5 秒内没有响应，仓库太大，无法在此显示更改。",
+  "git.genericError": "无法加载更改",
+  "git.subdir": "仅显示 {dir} 下的更改（仓库根目录：{root}）。",
+  "git.dirNoDiff": "此条目是文件夹（未跟踪目录或嵌套仓库），没有可显示的单一差异。请将其作为独立项目打开以查看更改。",
+  "git.emptyDiff": "差异为空（二进制文件、文件过大或没有文本更改）。",
+  "git.diffTruncated": "差异已截断{more} — 内容过大，无法完整显示。",
+  "git.moreHidden": "（还有 {n} 行被隐藏）",
+  "git.filesTruncated": "仅显示前 {n} 个更改文件（共 {total} 个）。",
+  "git.noSession": "打开会话以查看其文件夹的 git 更改。",
+};
+
+const dicts: Record<Locale, Record<MsgKey, string>> = { en, "zh-CN": zh };
+
+function detect(): Locale {
+  try {
+    const s = localStorage.getItem(KEY);
+    if (s === "en" || s === "zh-CN") return s;
+  } catch {
+    /* ignore */
+  }
+  const nav = typeof navigator !== "undefined" ? navigator.language || "" : "";
+  return /^zh/i.test(nav) ? "zh-CN" : "en";
+}
+
+export const i18n = $state<{ locale: Locale }>({ locale: detect() });
+
+export function setLocale(l: Locale) {
+  i18n.locale = l;
+  try {
+    localStorage.setItem(KEY, l);
+  } catch {
+    /* ignore */
+  }
+  if (typeof document !== "undefined") document.documentElement.lang = l;
+}
+
+/** Reactive translate (reads i18n.locale). */
+export function t(key: MsgKey, params?: Record<string, string | number>): string {
+  let s = dicts[i18n.locale][key] ?? en[key] ?? key;
+  if (params) for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, String(v));
+  return s;
+}
+
+if (typeof document !== "undefined") document.documentElement.lang = i18n.locale;
+
+/** Translate a literal English string (falls back to the input). */
+export function tr(s: string): string {
+  return i18n.locale === "zh-CN" ? (zhLiterals[s] ?? s) : s;
+}

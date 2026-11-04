@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tr } from "$lib/i18n.svelte";
   import {
     chatPrompt,
     createSkill,
@@ -149,7 +150,7 @@
   async function selectSkill(skill: SkillInfo, force = false) {
     if (!sessionId || !skill.filePath) return;
     if (dirty && !force) {
-      error = "Save or discard your changes before opening another skill";
+      error = tr("Save or discard your changes before opening another skill");
       return;
     }
     loading = true;
@@ -171,7 +172,7 @@
 
   function startNew() {
     if (dirty) {
-      error = "Save or discard your changes before creating another skill";
+      error = tr("Save or discard your changes before creating another skill");
       return;
     }
     const name = "new-skill";
@@ -195,7 +196,7 @@
 
   function chooseImport() {
     if (dirty) {
-      error = "Save or discard your changes before importing a skill";
+      error = tr("Save or discard your changes before importing a skill");
       return;
     }
     if (!fileInput) return;
@@ -278,7 +279,7 @@
 
   function close() {
     if (dirty) {
-      error = "Save or discard your changes before closing the skill workspace";
+      error = tr("Save or discard your changes before closing the skill workspace");
       return;
     }
     onClose();
@@ -320,7 +321,7 @@
 />
 
 {#if open}
-  <div class="fixed inset-0 z-[60] flex bg-background" role="dialog" aria-modal="true" aria-label="Skill workspace">
+  <div class="fixed inset-0 z-[60] flex bg-background" role="dialog" aria-modal="true" aria-label={tr("Skill workspace")}>
     <aside class="flex w-80 shrink-0 flex-col border-r border-border bg-muted/20">
       <div class="border-b border-border p-3">
         <div class="mb-3 flex items-center gap-2">
@@ -328,7 +329,7 @@
             <Sparkles class="size-4" />
           </span>
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-semibold">Pi skills</div>
+            <div class="text-sm font-semibold">{tr("Pi skills")}</div>
             <div class="truncate text-[10px] text-muted-foreground" title={cwd}>{cwd}</div>
           </div>
         </div>
@@ -336,29 +337,29 @@
           <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             bind:value={query}
-            placeholder="Search skills"
+            placeholder={tr("Search skills")}
             class="h-8 w-full rounded-md border border-border bg-background pl-8 pr-2 text-xs outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
         <div class="mt-2 grid grid-cols-2 gap-2">
           <button type="button" class="flex h-8 items-center justify-center gap-1.5 rounded-md border border-border bg-background text-xs hover:bg-muted" onclick={startNew}>
-            <FilePlus2 class="size-3.5" /> New
+            <FilePlus2 class="size-3.5" /> {tr("New")}
           </button>
           <button type="button" class="flex h-8 items-center justify-center gap-1.5 rounded-md border border-border bg-background text-xs hover:bg-muted" onclick={chooseImport}>
-            <Import class="size-3.5" /> Import
+            <Import class="size-3.5" /> {tr("Import")}
           </button>
         </div>
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto p-2">
         {#if loading && !workspace}
-          <div class="px-3 py-8 text-center text-xs text-muted-foreground">Loading skills</div>
+          <div class="px-3 py-8 text-center text-xs text-muted-foreground">{tr("Loading skills")}</div>
         {:else if filteredSkills.length === 0}
-          <div class="px-3 py-8 text-center text-xs text-muted-foreground">No skills found</div>
+          <div class="px-3 py-8 text-center text-xs text-muted-foreground">{tr("No skills found")}</div>
         {:else}
           {#each skillGroups as group (group.label)}
             <div class="px-3 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              {group.label}
+              {tr(group.label)}
             </div>
             {#each group.skills as skill (skill.filePath || skill.name)}
               <button
@@ -381,8 +382,8 @@
 
       {#if workspace}
         <div class="border-t border-border px-3 py-2 text-[9px] leading-4 text-muted-foreground">
-          <div class="truncate" title={workspace.roots.project}>Project · {workspace.roots.project}</div>
-          <div class="truncate" title={workspace.roots.user}>User · {workspace.roots.user}</div>
+          <div class="truncate" title={workspace.roots.project}>{tr("Project")} · {workspace.roots.project}</div>
+          <div class="truncate" title={workspace.roots.user}>{tr("User")} · {workspace.roots.user}</div>
         </div>
       {/if}
     </aside>
@@ -396,43 +397,43 @@
                 value={creating.name}
                 oninput={updateCreatingName}
                 class="h-8 min-w-0 max-w-xs rounded-md border border-border bg-background px-2 font-mono text-sm outline-none focus:ring-1 focus:ring-ring"
-                aria-label="Skill name"
+                aria-label={tr("Skill name")}
               />
               <select bind:value={creating.scope} class="h-8 rounded-md border border-border bg-background px-2 text-xs">
-                <option value="project">Project skill</option>
-                <option value="user">User skill</option>
+                <option value="project">{tr("Project skill")}</option>
+                <option value="user">{tr("User skill")}</option>
               </select>
             </div>
           {:else if selected}
             <div class="truncate text-sm font-semibold">{selected.name}</div>
             <div class="truncate font-mono text-[10px] text-muted-foreground" title={selected.filePath}>{selected.filePath}</div>
           {:else}
-            <div class="text-sm font-semibold">Choose a skill</div>
+            <div class="text-sm font-semibold">{tr("Choose a skill")}</div>
           {/if}
         </div>
 
         {#if selected || creating}
           <div class="flex items-center rounded-md border border-border p-0.5">
             <button type="button" class="flex h-7 items-center gap-1 rounded px-2 text-[11px] {mode === 'view' ? 'bg-muted font-medium' : 'text-muted-foreground'}" onclick={() => (mode = "view")}>
-              <Eye class="size-3.5" /> View
+              <Eye class="size-3.5" /> {tr("View")}
             </button>
-            <button type="button" class="flex h-7 items-center gap-1 rounded px-2 text-[11px] {mode === 'edit' ? 'bg-muted font-medium' : 'text-muted-foreground'} disabled:opacity-40" onclick={() => (mode = "edit")} disabled={!creating && !selected?.editable} title={!creating && !selected?.editable ? "Package skills are read-only" : "Edit Markdown"}>
-              <Pencil class="size-3.5" /> Edit
+            <button type="button" class="flex h-7 items-center gap-1 rounded px-2 text-[11px] {mode === 'edit' ? 'bg-muted font-medium' : 'text-muted-foreground'} disabled:opacity-40" onclick={() => (mode = "edit")} disabled={!creating && !selected?.editable} title={!creating && !selected?.editable ? tr("Package skills are read-only") : tr("Edit Markdown")}>
+              <Pencil class="size-3.5" /> {tr("Edit")}
             </button>
           </div>
-          <button type="button" class="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs hover:bg-muted disabled:opacity-40" onclick={() => void runSkill()} disabled={dirty || Boolean(creating)} title="Run this skill in chat">
-            <Play class="size-3.5" /> Use skill
+          <button type="button" class="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs hover:bg-muted disabled:opacity-40" onclick={() => void runSkill()} disabled={dirty || Boolean(creating)} title={tr("Run this skill in chat")}>
+            <Play class="size-3.5" /> {tr("Use skill")}
           </button>
           {#if dirty}
-            <button type="button" class="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs hover:bg-muted disabled:opacity-40" onclick={() => void discard()} disabled={saving} title="Discard unsaved changes">
-              <Undo2 class="size-3.5" /> Discard
+            <button type="button" class="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs hover:bg-muted disabled:opacity-40" onclick={() => void discard()} disabled={saving} title={tr("Discard unsaved changes")}>
+              <Undo2 class="size-3.5" /> {tr("Discard")}
             </button>
           {/if}
           <button type="button" class="flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs text-primary-foreground disabled:opacity-40" onclick={() => void save()} disabled={!dirty || saving || (!creating && !selected?.editable)}>
-            <Save class="size-3.5" /> {saving ? "Saving" : "Save"}
+            <Save class="size-3.5" /> {saving ? tr("Saving") : tr("Save")}
           </button>
         {/if}
-        <button type="button" class="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onclick={close} aria-label="Close skill workspace">
+        <button type="button" class="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onclick={close} aria-label={tr("Close skill workspace")}>
           <X class="size-4" />
         </button>
       </header>
@@ -451,22 +452,22 @@
             bind:value={content}
             spellcheck="false"
             class="block h-full min-h-[28rem] w-full resize-none rounded-none border-0 bg-[var(--pi-canvas)] p-6 font-mono text-[13px] leading-6 shadow-none outline-none focus-visible:ring-0 focus-visible:outline-none"
-            aria-label="Skill Markdown editor"
+            aria-label={tr("Skill Markdown editor")}
           />
         {:else}
           <article class="mx-auto w-full max-w-4xl px-8 py-8">
             {#if previewContent.trim()}
               <Markdown content={previewContent} compact={false} />
             {:else}
-              <div class="text-sm text-muted-foreground">This skill is empty.</div>
+              <div class="text-sm text-muted-foreground">{tr("This skill is empty.")}</div>
             {/if}
           </article>
         {/if}
       </div>
 
       <footer class="flex h-9 shrink-0 items-center justify-between border-t border-border px-4 text-[10px] text-muted-foreground">
-        <span>{dirty ? "Unsaved changes" : selected || creating ? "Saved" : ""}</span>
-        <span>⌘/Ctrl+S save · Discard restores the saved version · Esc close</span>
+        <span>{dirty ? tr("Unsaved changes") : selected || creating ? tr("Saved") : ""}</span>
+        <span>{tr("⌘/Ctrl+S save · Discard restores the saved version · Esc close")}</span>
       </footer>
     </main>
   </div>

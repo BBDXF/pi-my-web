@@ -183,7 +183,7 @@ async function startServer(port: number): Promise<void> {
   if (app) return;
   if (await isUp(port)) return;
 
-  const next = createServer({ port, stayAlive: true });
+  const next = createServer({ port, stayAlive: true, host: "127.0.0.1", password: "" });
   await new Promise<void>((resolve, reject) => {
     const onErr = (err: Error) => {
       next.server.off("error", onErr);

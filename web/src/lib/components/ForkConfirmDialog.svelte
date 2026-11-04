@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tr } from "$lib/i18n.svelte";
   import Button from "agentic-ui-kit/components/ui/button.svelte";
   import Loader from "agentic-ui-kit/components/prompt-kit/loader.svelte";
   import GitFork from "@lucide/svelte/icons/git-fork";
@@ -31,12 +32,10 @@
   <div class="w-full max-w-lg rounded-xl border border-border bg-background p-4 shadow-xl">
     <div class="flex items-center gap-2">
       <GitFork class="size-4 text-muted-foreground" />
-      <h2 id="fork-confirm-title" class="text-sm font-semibold">Fork into a new thread?</h2>
+      <h2 id="fork-confirm-title" class="text-sm font-semibold">{tr("Fork into a new thread?")}</h2>
     </div>
     <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-      A new thread will keep everything before this message. The original thread stays
-      unchanged, and this message will open in the editor so you can edit it before
-      continuing.
+      {tr("A new thread will keep everything before this message. The original thread stays unchanged, and this message will open in the editor so you can edit it before continuing.")}
     </p>
     <div class="mt-3 max-h-40 overflow-auto rounded-lg border border-border/70 bg-[var(--pi-canvas)] p-3 text-sm whitespace-pre-wrap">
       {message}
@@ -46,13 +45,13 @@
     {/if}
     <div class="mt-4 flex justify-end gap-2">
       <Button type="button" variant="outline" size="sm" onclick={onCancel} disabled={busy}>
-        Cancel
+        {tr("Cancel")}
       </Button>
       <Button type="button" size="sm" onclick={onConfirm} disabled={busy}>
         {#if busy}
           <Loader variant="circular" size="sm" class="mr-1.5 size-3.5" />
         {/if}
-        Continue to editor
+        {tr("Continue to editor")}
       </Button>
     </div>
   </div>

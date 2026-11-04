@@ -24,6 +24,31 @@ export type SessionRow = {
   isBashRunning?: boolean;
   pendingMessageCount?: number;
   model?: { provider?: string; id?: string; name?: string };
+  /** Usage block from the server (preferred). */
+  usage?: SessionUsage;
+  /** Legacy flat usage fields. */
+  contextTokens?: number | null;
+  contextWindow?: number;
+  percent?: number | null;
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  totalTokens?: number;
+  cost?: number;
+};
+
+export type SessionUsage = {
+  contextTokens?: number | null;
+  contextWindow?: number | null;
+  percent?: number | null;
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  totalTokens?: number;
+  cost?: number;
+  model?: { provider?: string; id?: string; name?: string } | null;
 };
 
 export type SessionStats = {
@@ -172,6 +197,9 @@ async function req<T>(path: string, init?: RequestInit, attempt = 0): Promise<T>
     const err = new Error(msg) as Error & { code?: string; status?: number };
     err.code = body.code;
     err.status = res.status;
+    if (res.status === 401 && !path.startsWith("/api/auth/") && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("pi-gui:unauthorized"));
+    }
     throw err;
   }
   return res.json() as Promise<T>;
@@ -622,12 +650,24 @@ export type GitFile = {
 export type GitStatus = {
   ok: boolean;
   error?: string;
+  /** not_git | parent_repo | timeout */
+  code?: string;
+  subdir?: string;
+  toplevel?: string;
   cwd?: string;
   branch?: string;
   files: GitFile[];
+  total?: number;
+  truncated?: boolean;
 };
 
-export type GitDiff = { path: string; patch: string };
+export type GitDiff = {
+  path: string;
+  patch: string;
+  truncated?: boolean;
+  originalSize?: number;
+  note?: string;
+};
 
 export function getGitStatus(id: string) {
   return req<GitStatus>(`/api/sessions/${encodeURIComponent(id)}/git`);
@@ -902,4 +942,68 @@ export function toolResultText(msg: ChatMessage): string {
     .map((p) => p.text ?? "")
     .filter(Boolean)
     .join("") || (typeof msg.content === "string" ? msg.content : "");
+}
+
+
+// ── Auth ──
+export type AuthStatus = { required: boolean; authenticated: boolean };
+
+export async function getAuthStatus(): Promise<AuthStatus> {
+  try {
+    return await req<AuthStatus>("/api/auth/status");
+  } catch {
+    // Older backend (404) or unreachable: assume open
+    return { required: false, authenticated: true };
+  }
+}
+
+export function login(password: string) {
+  return req<{ ok?: boolean }>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function logout() {
+  return req<{ ok?: boolean }>("/api/auth/logout", { method: "POST" });
+}
+
+// ── Stored sessions (manager) ──
+export type StoredSession = {
+  id: string;
+  path: string;
+  cwd?: string;
+  name?: string;
+  firstMessage?: string;
+  modified?: string | Date;
+  messageCount?: number;
+  archived?: boolean;
+};
+
+export async function listStoredSessions(archived: boolean) {
+  const r = await req<StoredSession[] | { sessions: StoredSession[] }>(
+    `/api/sessions/stored?archived=${archived ? 1 : 0}`,
+  );
+  return Array.isArray(r) ? r : (r.sessions ?? []);
+}
+
+export function archiveStored(path: string) {
+  return req<unknown>("/api/sessions/stored/archive", {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
+}
+
+export function unarchiveStored(path: string) {
+  return req<unknown>("/api/sessions/stored/unarchive", {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
+}
+
+export function deleteStored(path: string) {
+  return req<unknown>("/api/sessions/stored", {
+    method: "DELETE",
+    body: JSON.stringify({ path }),
+  });
 }

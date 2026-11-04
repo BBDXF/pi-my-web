@@ -16,8 +16,9 @@
     setModel,
     setThinking,
     abort,
-    shutdown,
     shareSession,
+    getAuthStatus,
+    logout,
   } from "$lib/api";
   import { builtinByName } from "$lib/slash-builtins";
   import ChatPanel from "$lib/components/ChatPanel.svelte";
@@ -27,9 +28,45 @@
   import ForkConfirmDialog from "$lib/components/ForkConfirmDialog.svelte";
   import TreeNavigateDialog from "$lib/components/TreeNavigateDialog.svelte";
   import SkillWorkspaceDialog from "$lib/components/SkillWorkspaceDialog.svelte";
+  import Login from "$lib/components/Login.svelte";
+  import SettingsDialog from "$lib/components/SettingsDialog.svelte";
+  import SessionManager from "$lib/components/SessionManager.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { loadAndApplyCustomization } from "$lib/customization";
   const SIDEBAR_KEY = "pi-gui-sidebar-open";
   const GIT_SIDEBAR_KEY = "pi-gui-git-sidebar-open";
+
+  /** null = checking; login screen when required && !authenticated */
+  let authOk = $state<boolean | null>(null);
+  let authRequired = $state(false);
+  let settingsOpen = $state(false);
+  let managerOpen = $state(false);
+  let booted = false;
+
+  async function checkAuth() {
+    const st = await getAuthStatus();
+    authRequired = st.required;
+    authOk = !st.required || st.authenticated;
+    if (authOk && !booted) {
+      booted = true;
+      void bootData();
+    }
+  }
+  async function doLogout() {
+    try {
+      await logout();
+    } catch {
+      /* ignore */
+    }
+    sessions = [];
+    selected = undefined;
+    booted = false;
+    authOk = false;
+  }
+  function openFromManager(row: SessionRow) {
+    managerOpen = false;
+    void onSelect(row);
+  }
 
   let sessions = $state<SessionRow[]>([]);
   let selected = $state<SessionRow | undefined>(undefined);
@@ -371,7 +408,7 @@
         if (detail.id !== id) setSessionUrl(detail.id, "replace");
       } catch {
         setSessionUrl(undefined, "replace");
-        err = "Session not found";
+        err = t("app.notFound");
         return;
       }
     }
@@ -546,7 +583,7 @@
     try {
       const { leafId } = await getTree(selected.id);
       if (!leafId) {
-        warn = "Nothing to clone yet — send a message first";
+        warn = t("app.cloneEmpty");
         return;
       }
       const row = await forkSession(selected.id, leafId, { position: "at" });
@@ -566,7 +603,7 @@
     if (!b) return;
     const go = b.go;
     if (go === "na") {
-      warn = `/${name} is not available in the GUI yet`;
+      warn = t("app.notAvailable", { name });
       return;
     }
     if (go === "action:new") {
@@ -579,10 +616,6 @@
     }
     if (go === "action:copy") {
       void onCopyLast();
-      return;
-    }
-    if (go === "action:quit") {
-      void shutdown().catch(() => {});
       return;
     }
     if (go === "action:clone") {
@@ -605,7 +638,7 @@
 
   async function onShare() {
     if (!selected?.id) {
-      err = "Open a session to share";
+      err = t("app.openToShare");
       return;
     }
     try {
@@ -618,6 +651,20 @@
       }
     } catch (e) {
       err = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function bootData() {
+    await refresh();
+    if (!routedOnce) {
+      routedOnce = true;
+      await routeFromUrl();
+    }
+    try {
+      const h = await getHealth();
+      if (h.cwd) defaultCwd = h.cwd;
+    } catch {
+      /* ignore */
     }
   }
 
@@ -637,31 +684,29 @@
       void routeFromUrl();
     };
     window.addEventListener("popstate", onPop);
+    const onUnauth = () => {
+      booted = false;
+      authOk = false;
+    };
+    window.addEventListener("pi-gui:unauthorized", onUnauth);
+    void checkAuth();
 
-    void (async () => {
-      await refresh();
-      if (!routedOnce) {
-        routedOnce = true;
-        await routeFromUrl();
-      }
-      try {
-        const h = await getHealth();
-        if (h.cwd) defaultCwd = h.cwd;
-      } catch {
-        /* ignore */
-      }
-    })();
-
-    const t = setInterval(() => {
+    const timer = setInterval(() => {
       if (document.visibilityState === "visible") refresh();
     }, 60_000);
     return () => {
-      clearInterval(t);
+      clearInterval(timer);
+      window.removeEventListener("pi-gui:unauthorized", onUnauth);
       window.removeEventListener("popstate", onPop);
     };
   });
 </script>
 
+{#if authOk === null}
+  <div class="flex h-svh items-center justify-center bg-background text-sm text-muted-foreground">{t("common.loading")}</div>
+{:else if authOk === false}
+  <Login onSuccess={() => void checkAuth()} />
+{:else}
 <div class="flex h-svh w-full overflow-hidden bg-background text-foreground">
   {#if sidebarOpen}
     <SessionList
@@ -674,6 +719,13 @@
       onOpenPalette={() => (cmdkOpen = true)}
     />
   {/if}
+  {#if managerOpen}
+    <SessionManager
+      onOpen={openFromManager}
+      onBack={() => (managerOpen = false)}
+      onChanged={() => void refresh()}
+    />
+  {:else}
   <div class="flex min-w-0 flex-1 flex-col">
     {#if err}
       <div
@@ -692,7 +744,7 @@
           class="shrink-0 text-xs underline opacity-80 hover:opacity-100"
           onclick={() => (warn = null)}
         >
-          Dismiss
+          {t('common.dismiss')}
         </button>
       </div>
     {/if}
@@ -700,7 +752,7 @@
       <div class="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0 space-y-1">
-            <div>Share URL: <a class="underline" href={shareNotice.viewer} target="_blank" rel="noreferrer">{shareNotice.viewer}</a></div>
+            <div>{t('app.shareUrl')}: <a class="underline" href={shareNotice.viewer} target="_blank" rel="noreferrer">{shareNotice.viewer}</a></div>
             <div>Gist: <a class="underline" href={shareNotice.gist} target="_blank" rel="noreferrer">{shareNotice.gist}</a></div>
           </div>
           <button
@@ -708,7 +760,7 @@
             class="shrink-0 text-xs underline opacity-80 hover:opacity-100"
             onclick={() => (shareNotice = null)}
           >
-            Dismiss
+            {t('common.dismiss')}
           </button>
         </div>
       </div>
@@ -726,8 +778,10 @@
       showExpandGit={!gitSidebarOpen}
       onExpandSidebar={() => setSidebarOpen(true)}
       onExpandGit={() => setGitSidebarOpen(true)}
+      onOpenPalette={() => (cmdkOpen = true)}
     />
   </div>
+  {/if}
   {#if gitSidebarOpen}
     <GitDiffSidebar
       sessionId={selected?.running ? selected.id : undefined}
@@ -755,6 +809,9 @@
   onCloseSession={onCloseCurrent}
   onCopyLast={onCopyLast}
   onShare={onShare}
+  onOpenAppSettings={() => (settingsOpen = true)}
+  onOpenManager={() => (managerOpen = true)}
+  onLogout={authRequired ? doLogout : undefined}
   onOpenSkillsWorkspace={() => (skillWorkspaceOpen = true)}
   onRequestFork={requestFork}
   onRequestTree={requestTreeNavigation}
@@ -798,3 +855,6 @@
     onNavigate={confirmTreeNavigation}
   />
 {/if}
+{/if}
+
+<SettingsDialog open={settingsOpen} onClose={() => (settingsOpen = false)} />

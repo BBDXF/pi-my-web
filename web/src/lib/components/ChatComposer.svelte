@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tr } from "$lib/i18n.svelte";
   import ComposerPlus from "$lib/components/ComposerPlus.svelte";
   import FolderPicker from "$lib/components/FolderPicker.svelte";
   import ModelPicker from "$lib/components/ModelPicker.svelte";
@@ -53,7 +54,7 @@
   let {
     value = $bindable(""),
     attachments = [],
-    placeholder = "Message pi",
+    placeholder = undefined,
     class: className = "",
     textareaClass = "min-h-[44px]",
     isLoading = false,
@@ -108,7 +109,7 @@
             type="button"
             class="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:text-foreground"
             onclick={() => onRemoveAttachment?.(index)}
-            aria-label="Remove attachment"
+            aria-label={tr("Remove attachment")}
           >
             <X class="size-2.5" />
           </button>
@@ -118,7 +119,7 @@
   {/if}
 
   <PromptInputTextarea
-    {placeholder}
+    placeholder={placeholder ?? tr("Message pi")}
     class={textareaClass}
     onkeydown={onKeydown}
     onpaste={onPaste}
@@ -166,7 +167,7 @@
           onclick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {tr("Cancel")}
         </Button>
       {/if}
       {#if busy && onStop}

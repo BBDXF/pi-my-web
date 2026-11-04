@@ -51,8 +51,10 @@
   import ChatComposer from "$lib/components/ChatComposer.svelte";
   import MessageBubble from "$lib/components/MessageBubble.svelte";
   import SlashMenu from "$lib/components/SlashMenu.svelte";
+  import { t, tr } from "$lib/i18n.svelte";
   import StatusBar from "$lib/components/StatusBar.svelte";
   import Button from "agentic-ui-kit/components/ui/button.svelte";
+  import CommandIcon from "@lucide/svelte/icons/command";
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import { onDestroy, tick, untrack } from "svelte";
@@ -160,6 +162,7 @@
     showExpandGit?: boolean;
     onExpandSidebar?: () => void;
     onExpandGit?: () => void;
+    onOpenPalette?: () => void;
   };
 
   let {
@@ -175,6 +178,7 @@
     showExpandGit = false,
     onExpandSidebar,
     onExpandGit,
+    onOpenPalette,
   }: Props = $props();
 
   let messages = $state<ChatMessage[]>([]);
@@ -1437,11 +1441,11 @@
   const placeholder = $derived(
     bashMode
       ? draft.trimStart().startsWith("!!")
-        ? "Bash (no context)"
-        : "Bash"
+        ? tr("Bash (no context)")
+        : tr("Bash")
       : streaming
-        ? "Steer (Enter) · follow-up (⌥Enter)"
-        : "Message pi  (/ commands · ! bash)",
+        ? tr("Steer (Enter) · follow-up (⌥Enter)")
+        : tr("Message pi  (/ commands · ! bash)"),
   );
 
   /** Home / empty chat: centered prompt (Cursor-style). */
@@ -1551,6 +1555,17 @@
             <PanelLeft class="size-4" />
           </button>
         {/if}
+        {#if showExpandSidebar && onOpenPalette}
+          <button
+            type="button"
+            class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title={t("sidebar.commandPalette")}
+            aria-label={t("sidebar.commandPalette")}
+            onclick={onOpenPalette}
+          >
+            <CommandIcon class="size-4" />
+          </button>
+        {/if}
         <div class="min-w-0 flex-1"></div>
         {#if showExpandGit && onExpandGit}
           <button
@@ -1595,7 +1610,7 @@
           class={promptBoxClass}
           bind:value={draft}
           {attachments}
-          placeholder="Describe a task · / commands · ! bash"
+          placeholder={tr("Describe a task · / commands · ! bash")}
           textareaClass="min-h-[56px] text-[15px]"
           isLoading={sending}
           {canSend}
@@ -1650,7 +1665,7 @@
       </div>
       <div class="home-hint relative z-[1] mt-4 flex items-center gap-1.5 text-[11px] text-muted-foreground/80">
         <Sparkles class="size-3" aria-hidden="true" />
-        Suggestions fill the prompt — nothing sends until you choose.
+        {t('chat.suggestHint')}
       </div>
     </div>
   {:else}
@@ -1663,6 +1678,7 @@
         {showExpandGit}
         {onExpandSidebar}
         {onExpandGit}
+        {onOpenPalette}
       />
     {/if}
 
@@ -1679,7 +1695,7 @@
               class="mx-auto rounded-full border border-border/70 bg-background/80 px-3 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
               onclick={() => (showAllMsgs = true)}
             >
-              Show earlier {hiddenMsgCount} messages
+              {t('chat.showEarlier', { n: hiddenMsgCount })}
             </button>
           {/if}
           {#each messageTurns as turn (turn.startIndex)}
@@ -1693,13 +1709,13 @@
                     ondrop={onComposerDrop}
                   >
                     <div class="mb-1.5 px-1 text-[11px] font-medium text-muted-foreground">
-                      Edit message · sending starts a new branch
+                      {t('chat.editMessage')}
                     </div>
                     <ChatComposer
                       class={`${promptBoxClass} ring-2 ring-primary/20`}
                       bind:value={draft}
                       {attachments}
-                      placeholder="Edit message"
+                      placeholder={tr("Edit message")}
                       isLoading={sending || inlineEditSubmitting}
                       disabled={inlineEditSubmitting}
                       canSend={canSend && !inlineEditSubmitting}

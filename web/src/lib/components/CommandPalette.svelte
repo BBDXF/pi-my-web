@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tr } from "$lib/i18n.svelte";
   import Search from "@lucide/svelte/icons/search";
   import Terminal from "@lucide/svelte/icons/terminal";
   import Plus from "@lucide/svelte/icons/plus";
@@ -16,7 +17,9 @@
   import ScrollText from "@lucide/svelte/icons/scroll-text";
   import Download from "@lucide/svelte/icons/download";
   import Share2 from "@lucide/svelte/icons/share-2";
-  import Power from "@lucide/svelte/icons/power";
+  import Palette from "@lucide/svelte/icons/palette";
+  import LayoutList from "@lucide/svelte/icons/layout-list";
+  import LogOut from "@lucide/svelte/icons/log-out";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import Blocks from "@lucide/svelte/icons/blocks";
@@ -42,7 +45,6 @@
     setScopedModels,
     messageText,
     setPendingEditorText,
-    shutdown,
     type ForkCandidate,
     type ModelInfo,
     type SessionRow,
@@ -136,6 +138,9 @@
     onCloseSession?: () => void;
     onCopyLast?: () => void;
     onShare?: () => void;
+    onOpenAppSettings?: () => void;
+    onOpenManager?: () => void;
+    onLogout?: () => void;
     onOpenSkillsWorkspace?: () => void;
     onRequestFork?: (candidate: ForkCandidate) => void;
     onRequestTree?: (node: TreeNode) => void;
@@ -164,6 +169,9 @@
     onCloseSession,
     onCopyLast,
     onShare,
+    onOpenAppSettings,
+    onOpenManager,
+    onLogout,
     onOpenSkillsWorkspace,
     onRequestFork,
     onRequestTree,
@@ -1137,15 +1145,6 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
     }
   }
 
-  async function quitServer() {
-    try {
-      await shutdown();
-    } catch {
-      /* server dies mid-response */
-    }
-    onClose();
-  }
-
   const filteredModels = $derived.by(() => {
     const q = query.trim().toLowerCase();
     if (!q) return models;
@@ -1574,13 +1573,31 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
     });
 
     cmds.push({
-      id: "quit",
-      label: "Quit",
+      id: "app-settings",
+      label: "Appearance & language",
       category: "App",
-      icon: Power,
-      keywords: "quit server exit stop /quit",
-      action: () => void quitServer(),
+      icon: Palette,
+      keywords: "theme language i18n 中文 english dark light 主题 语言 settings",
+      action: () => run(onOpenAppSettings),
     });
+    cmds.push({
+      id: "session-manager",
+      label: "Session manager",
+      category: "App",
+      icon: LayoutList,
+      keywords: "sessions archive delete stored manage 会话 管理 归档",
+      action: () => run(onOpenManager),
+    });
+    if (onLogout) {
+      cmds.push({
+        id: "logout",
+        label: "Log out",
+        category: "App",
+        icon: LogOut,
+        keywords: "logout sign out password 退出登录",
+        action: () => run(onLogout),
+      });
+    }
 
     // All sessions (open + closed) — searchable; empty query limited in filtered.
     // Server already sorts by modified-desc; keep that order for Recent.
@@ -2116,7 +2133,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={renameRef}
             type="text"
             bind:value={renameDraft}
-            placeholder="Session name"
+            placeholder={tr("Session name")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
@@ -2126,7 +2143,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             class="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent/50"
             onclick={backToCommands}
           >
-            Back
+            {tr("Back")}
           </button>
           <button
             type="button"
@@ -2134,11 +2151,11 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             disabled={!renameDraft.trim()}
             onclick={submitRename}
           >
-            Rename
+            {tr("Rename")}
           </button>
         </div>
         <div class="border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          Enter to save · Esc to go back
+          {tr("Enter to save · Esc to go back")}
         </div>
       {:else if view === "open-by-id"}
         <div class="flex items-center gap-2 border-b border-border px-4 py-3">
@@ -2147,7 +2164,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={openByIdRef}
             type="text"
             bind:value={openByIdDraft}
-            placeholder="Session file or session ID"
+            placeholder={tr("Session file or session ID")}
             class="w-full bg-transparent font-mono text-sm outline-none placeholder:text-muted-foreground"
             disabled={openByIdBusy}
           />
@@ -2162,7 +2179,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             onclick={backToCommands}
             disabled={openByIdBusy}
           >
-            Back
+            {tr("Back")}
           </button>
           <button
             type="button"
@@ -2175,23 +2192,23 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         </div>
         <div class="border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
           Same as <span class="font-mono">pi --session &lt;path|id&gt;</span> ·
-          <span class="font-medium">Copy pi --session</span> · Enter · Esc
+          <span class="font-medium">{tr("Copy pi --session")}</span> · Enter · Esc
         </div>
       {:else if view === "info"}
         <div class="flex items-center gap-2 border-b border-border px-4 py-3">
           <Info class="size-4 shrink-0 text-muted-foreground" />
-          <span class="text-sm font-medium">Session</span>
+          <span class="text-sm font-medium">{tr("Session")}</span>
         </div>
         <div class="max-h-[50vh] space-y-2 overflow-y-auto px-4 py-3">
           {#each infoRows as row}
             <div class="grid grid-cols-[5.5rem_1fr] gap-2 text-sm">
-              <span class="text-muted-foreground">{row.label}</span>
+              <span class="text-muted-foreground">{tr(row.label)}</span>
               <span class="min-w-0 break-all font-mono text-xs">{row.value}</span>
             </div>
           {/each}
           {#if continueCmd}
             <div class="grid grid-cols-[5.5rem_1fr] gap-2 text-sm">
-              <span class="text-muted-foreground">Session</span>
+              <span class="text-muted-foreground">{tr("Session")}</span>
               <div class="flex min-w-0 items-start gap-1">
                 <span class="min-w-0 flex-1 break-all font-mono text-xs">{continueCmd}</span>
                 <button
@@ -2216,22 +2233,22 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             class="rounded-md bg-accent px-3 py-1.5 text-sm text-accent-foreground"
             onclick={backToCommands}
           >
-            Done
+            {tr("Done")}
           </button>
         </div>
         <div class="border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          Enter or Esc to go back
+          {tr("Enter or Esc to go back")}
         </div>
       {:else if view === "hotkeys"}
         <div class="flex items-center gap-2 border-b border-border px-4 py-3">
           <Keyboard class="size-4 shrink-0 text-muted-foreground" />
-          <span class="text-sm font-medium">Keyboard shortcuts</span>
+          <span class="text-sm font-medium">{tr("Keyboard shortcuts")}</span>
         </div>
         <div class="max-h-[50vh] space-y-2 overflow-y-auto px-4 py-3">
           {#each HOTKEYS as row}
             <div class="grid grid-cols-[8.5rem_1fr] gap-2 text-sm">
               <kbd class="font-mono text-xs text-muted-foreground">{row.keys}</kbd>
-              <span>{row.desc}</span>
+              <span>{tr(row.desc)}</span>
             </div>
           {/each}
         </div>
@@ -2241,11 +2258,11 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             class="rounded-md bg-accent px-3 py-1.5 text-sm text-accent-foreground"
             onclick={backToCommands}
           >
-            Done
+            {tr("Done")}
           </button>
         </div>
         <div class="border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          Enter or Esc to go back
+          {tr("Enter or Esc to go back")}
         </div>
       {:else if view === "changelog"}
         <div class="flex items-center gap-2 border-b border-border px-4 py-3">
@@ -2256,7 +2273,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         </div>
         <div class="max-h-[50vh] overflow-y-auto px-4 py-3">
           {#if changelogLoading}
-            <div class="py-6 text-center text-sm text-muted-foreground">Loading</div>
+            <div class="py-6 text-center text-sm text-muted-foreground">{tr("Loading")}</div>
           {:else if changelogError}
             <div class="py-6 text-center text-sm text-destructive">{changelogError}</div>
           {:else}
@@ -2269,11 +2286,11 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             class="rounded-md bg-accent px-3 py-1.5 text-sm text-accent-foreground"
             onclick={backToCommands}
           >
-            Done
+            {tr("Done")}
           </button>
         </div>
         <div class="border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          Enter or Esc to go back
+          {tr("Enter or Esc to go back")}
         </div>
       {:else if view === "thinking"}
         <div class="flex items-center gap-2 border-b border-border px-4 py-3">
@@ -2282,7 +2299,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={query}
-            placeholder="Search thinking levels"
+            placeholder={tr("Search thinking levels")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd
@@ -2294,7 +2311,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if thinkingLoading}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              Loading levels
+              {tr("Loading levels")}
             </div>
           {:else if thinkingError}
             <div class="px-4 py-6 text-center text-sm text-destructive">
@@ -2302,7 +2319,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             </div>
           {:else if filteredThinking.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              No thinking levels for this model
+              {tr("No thinking levels for this model")}
             </div>
           {:else}
             {#each filteredThinking as level, i (level)}
@@ -2325,7 +2342,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
           {/if}
         </div>
         <div class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          <span>↑↓ · Enter to select · Esc back</span>
+          <span>{tr("↑↓ · Enter to select · Esc back")}</span>
           <span>{filteredThinking.length} level{filteredThinking.length === 1 ? "" : "s"}</span>
         </div>
       {:else if view === "skills"}
@@ -2335,7 +2352,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={query}
-            placeholder="Search skills"
+            placeholder={tr("Search skills")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd
@@ -2347,7 +2364,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if skillsLoading}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              Loading skills
+              {tr("Loading skills")}
             </div>
           {:else if skillsError}
             <div class="px-4 py-6 text-center text-sm text-destructive">
@@ -2355,7 +2372,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             </div>
           {:else if filteredSkills.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              No skills loaded for this session
+              {tr("No skills loaded for this session")}
             </div>
           {:else}
             {#each filteredSkills as sk, i (sk.name)}
@@ -2385,7 +2402,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
           {/if}
         </div>
         <div class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          <span>↑↓ · Enter to run · Esc back</span>
+          <span>{tr("↑↓ · Enter to run · Esc back")}</span>
           <span>{filteredSkills.length} skill{filteredSkills.length === 1 ? "" : "s"}</span>
         </div>
       {:else if view === "extensions"}
@@ -2395,7 +2412,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={query}
-            placeholder="Search extensions"
+            placeholder={tr("Search extensions")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd
@@ -2407,7 +2424,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if extensionsLoading}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              Loading extensions
+              {tr("Loading extensions")}
             </div>
           {:else if extensionsError}
             <div class="px-4 py-6 text-center text-sm text-destructive">
@@ -2415,7 +2432,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             </div>
           {:else if filteredExtensions.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              No extensions loaded for this session
+              {tr("No extensions loaded for this session")}
             </div>
           {:else}
             {#each filteredExtensions as ext, i (`${ext.path}-${i}`)}
@@ -2453,7 +2470,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
           {/if}
         </div>
         <div class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          <span>↑↓ · Esc back</span>
+          <span>{tr("↑↓ · Esc back")}</span>
           <span
             >{filteredExtensions.length} extension{filteredExtensions.length ===
             1
@@ -2466,8 +2483,8 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
           <div class="flex items-center gap-2 px-4 pb-2 pt-3">
             <GitBranch class="size-4 shrink-0 text-muted-foreground" />
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-semibold">Session Tree</div>
-              <div class="text-[10px] text-muted-foreground">Active branch is highlighted</div>
+              <div class="text-sm font-semibold">{tr("Session Tree")}</div>
+              <div class="text-[10px] text-muted-foreground">{tr("Active branch is highlighted")}</div>
             </div>
             <button
               type="button"
@@ -2490,7 +2507,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
               bind:this={inputRef}
               type="text"
               bind:value={query}
-              placeholder="Filter by message, role, label, or ID"
+              placeholder={tr("Filter by message, role, label, or ID")}
               class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
@@ -2498,7 +2515,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if treeLoading}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              Loading tree
+              {tr("Loading tree")}
             </div>
           {:else if treeError}
             <div class="px-4 py-6 text-center text-sm text-destructive">
@@ -2506,7 +2523,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             </div>
           {:else if filteredTree.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              Empty session tree
+              {tr("Empty session tree")}
             </div>
           {:else}
             {#each filteredTree as row, i (row.node.id)}
@@ -2554,14 +2571,14 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
                   </span>
                 {/if}
                 {#if current}
-                  <span class="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">current</span>
+                  <span class="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">{tr("current")}</span>
                 {/if}
               </button>
             {/each}
           {/if}
         </div>
         <div class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          <span>↑↓ move · Enter select · Esc back</span>
+          <span>{tr("↑↓ move · Enter select · Esc back")}</span>
           <span>{filteredTree.filter((row) => row.onPath).length} active · {filteredTree.length} total</span>
         </div>
       {:else if view === "fork"}
@@ -2571,7 +2588,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={query}
-            placeholder="Fork from user message"
+            placeholder={tr("Fork from user message")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd
@@ -2583,7 +2600,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if forkLoading}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              Loading messages
+              {tr("Loading messages")}
             </div>
           {:else if forkError}
             <div class="px-4 py-6 text-center text-sm text-destructive">
@@ -2591,7 +2608,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             </div>
           {:else if filteredFork.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              No user messages to fork from
+              {tr("No user messages to fork from")}
             </div>
           {:else}
             {#each filteredFork as c, i (c.entryId)}
@@ -2612,7 +2629,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
           {/if}
         </div>
         <div class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          <span>↑↓ · Enter to review fork · Esc back</span>
+          <span>{tr("↑↓ · Enter to review fork · Esc back")}</span>
           <span
             >{filteredFork.length} message{filteredFork.length === 1
               ? ""
@@ -2626,7 +2643,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={query}
-            placeholder="Settings"
+            placeholder={tr("Settings")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd
@@ -2638,7 +2655,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if filteredSettings.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              No settings match
+              {tr("No settings match")}
             </div>
           {:else}
             {#each filteredSettings as item, i (item.id)}
@@ -2657,10 +2674,10 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
               >
                 <Icon class="size-4 shrink-0 opacity-70" />
                 <span class="flex min-w-0 flex-1 items-baseline gap-2">
-                  <span class="shrink-0 truncate">{item.label}</span>
+                  <span class="shrink-0 truncate">{tr(item.label)}</span>
                   {#if item.caption}
                     <span class="min-w-0 truncate text-[10px] opacity-60"
-                      >{item.caption}</span
+                      >{tr(item.caption)}</span
                     >
                   {/if}
                 </span>
@@ -2671,7 +2688,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div
           class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground"
         >
-          <span>↑↓ · Enter · Esc back</span>
+          <span>{tr("↑↓ · Enter · Esc back")}</span>
           <span>{filteredSettings.length}</span>
         </div>
       {:else if view === "scoped-models"}
@@ -2681,7 +2698,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={scopedFilter}
-            placeholder="Filter models"
+            placeholder={tr("Filter models")}
             class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             autocomplete="off"
             autocorrect="off"
@@ -2694,7 +2711,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             disabled={scopedLoading || scopedAllOn}
             onclick={scopedSelectAll}
           >
-            Select all
+            {tr("Select all")}
           </button>
           <button
             type="button"
@@ -2702,7 +2719,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             disabled={scopedLoading || scopedNoneOn}
             onclick={scopedClearAll}
           >
-            Clear all
+            {tr("Clear all")}
           </button>
           <kbd
             class="hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground sm:inline-block"
@@ -2733,11 +2750,11 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if scopedLoading}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              Loading
+              {tr("Loading")}
             </div>
           {:else if filteredScoped.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              No models found
+              {tr("No models found")}
             </div>
           {:else}
             {#each filteredScoped as m, i (modelFullId(m))}
@@ -2774,7 +2791,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
           class="flex items-center justify-between gap-2 border-t border-border px-4 py-2 text-[10px] text-muted-foreground"
         >
           <span class="min-w-0 truncate"
-            >↑↓ · Space toggle · ⌘A all · ⌘⌫ clear · Esc discard</span
+            >{tr("↑↓ · Space toggle · ⌘A all · ⌘⌫ clear · Esc discard")}</span
           >
           <div class="flex shrink-0 items-center gap-1.5">
             <button
@@ -2783,7 +2800,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
               disabled={!scopedDirty || scopedApplying}
               onclick={scopedReset}
             >
-              Reset
+              {tr("Reset")}
             </button>
             <button
               type="button"
@@ -2802,7 +2819,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={query}
-            placeholder="Resume session"
+            placeholder={tr("Resume session")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd
@@ -2814,7 +2831,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if resumeSessions.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              No other sessions
+              {tr("No other sessions")}
             </div>
           {:else}
             {#each resumeSessions as s, i (s.id)}
@@ -2857,7 +2874,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div
           class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground"
         >
-          <span>↑↓ · Enter · Esc back</span>
+          <span>{tr("↑↓ · Enter · Esc back")}</span>
           <span>{resumeSessions.length}</span>
         </div>
       {:else if view === "export"}
@@ -2867,7 +2884,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={query}
-            placeholder="Export format"
+            placeholder={tr("Export format")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd
@@ -2879,7 +2896,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if !session?.id}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              Open a session to export
+              {tr("Open a session to export")}
             </div>
           {:else}
             {#each filteredExport as o, i (o.id)}
@@ -2894,8 +2911,8 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
               >
                 <Download class="size-4 shrink-0 opacity-70" />
                 <span class="flex min-w-0 flex-1 flex-col">
-                  <span class="truncate">{o.label}</span>
-                  <span class="truncate text-[10px] opacity-60">{o.caption}</span>
+                  <span class="truncate">{tr(o.label)}</span>
+                  <span class="truncate text-[10px] opacity-60">{tr(o.caption)}</span>
                 </span>
               </button>
             {/each}
@@ -2904,7 +2921,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div
           class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground"
         >
-          <span>↑↓ · Enter · Esc back</span>
+          <span>{tr("↑↓ · Enter · Esc back")}</span>
           <span>{filteredExport.length}</span>
         </div>
       {:else if view === "models"}
@@ -2914,7 +2931,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={query}
-            placeholder="Search models"
+            placeholder={tr("Search models")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd
@@ -2926,7 +2943,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[50vh] overflow-y-auto py-2">
           {#if modelsLoading}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              Loading models
+              {tr("Loading models")}
             </div>
           {:else if modelsError}
             <div class="px-4 py-6 text-center text-sm text-destructive">
@@ -2934,7 +2951,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             </div>
           {:else if filteredModels.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              No models found
+              {tr("No models found")}
             </div>
           {:else}
             {#each filteredModels as m, i (`${m.provider}/${m.id}`)}
@@ -2961,7 +2978,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
           {/if}
         </div>
         <div class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          <span>↑↓ · Enter to select · Esc back</span>
+          <span>{tr("↑↓ · Enter to select · Esc back")}</span>
           <span>{filteredModels.length} model{filteredModels.length === 1 ? "" : "s"}</span>
         </div>
       {:else}
@@ -2972,7 +2989,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
             bind:this={inputRef}
             type="text"
             bind:value={query}
-            placeholder="Type a command or search"
+            placeholder={tr("Type a command or search")}
             class="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd
@@ -2986,13 +3003,13 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
         <div bind:this={listRef} class="max-h-[56vh] overflow-y-auto py-1.5">
           {#if flatItems.length === 0}
             <div class="px-4 py-6 text-center text-sm text-muted-foreground">
-              No commands found
+              {tr("No commands found")}
             </div>
           {:else}
             {#each Array.from(grouped().entries()) as [category, items]}
               <div class="px-3 pb-0.5 pt-2 first:pt-1">
                 <div class="px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
-                  {category}
+                  {tr(category)}
                 </div>
               </div>
               {#each items as cmd}
@@ -3007,14 +3024,14 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
                 >
                   <Icon class="size-4 shrink-0 opacity-70" />
                   <span class="flex min-w-0 flex-1 items-baseline gap-2">
-                    <span class="shrink-0 truncate">{cmd.label}</span>
+                    <span class="shrink-0 truncate">{tr(cmd.label)}</span>
                     {#if cmd.caption}
                       <span
                         class="min-w-0 truncate text-[11px] {active
                           ? 'text-accent-foreground/70'
                           : 'text-muted-foreground'}"
                       >
-                        {cmd.caption}
+                        {tr(cmd.caption)}
                       </span>
                     {/if}
                   </span>
@@ -3031,7 +3048,7 @@ h3{margin:1.5rem 0 0.5rem;text-transform:capitalize}</style></head><body>
 
         <!-- Footer hint -->
         <div class="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          <span>↑↓ to navigate · Enter to run</span>
+          <span>{tr("↑↓ to navigate · Enter to run")}</span>
           <span>{flatItems.length} command{flatItems.length === 1 ? "" : "s"}</span>
         </div>
       {/if}

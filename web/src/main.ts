@@ -1,10 +1,10 @@
 import "./app.css";
 import { mount } from "svelte";
-import { initTheme } from "agentic-ui-kit/theme.svelte.js";
+import { initAppTheme } from "$lib/themes.svelte";
 import { loadAndApplyCustomization } from "$lib/customization";
 import App from "./App.svelte";
 
-initTheme();
+initAppTheme();
 void loadAndApplyCustomization().catch(() => {});
 
 const app = mount(App, {

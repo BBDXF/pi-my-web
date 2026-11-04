@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { t } from "$lib/i18n.svelte";
   import {
     getGitStatus,
     getGitDiff,
@@ -34,6 +35,15 @@
     /** Shiki-highlighted HTML for code lines */
     html: string;
   };
+
+  const MAX_ROWS = 4000;
+  const HIGHLIGHT_MAX_LINES = 1500;
+  const HIGHLIGHT_MAX_CHARS = 150_000;
+  const MAX_LINE_CHARS = 2000;
+  /** Lines longer than this (minified code) are never highlighted. */
+  const HIGHLIGHT_MAX_LINE = 300;
+  /** Total characters highlighted per diff (shiki is synchronous). */
+  const HIGHLIGHT_BUDGET = 60_000;
 
   function esc(s: string) {
     return s
@@ -105,6 +115,7 @@
   let patch = $state<string>("");
   let patchLoading = $state(false);
   let patchErr = $state<string | null>(null);
+  let patchTruncated = $state(false);
 
   const folderName = $derived.by(() => {
     const p = cwd || status?.cwd || "";
@@ -112,6 +123,22 @@
     const segs = p.split("/").filter(Boolean);
     return segs.at(-1) || p;
   });
+
+  const errTitle = $derived.by(() => {
+    const c = status?.code;
+    if (c === "not_git") return t("git.notGit");
+    if (c === "parent_repo") return t("git.parentRepo");
+    if (c === "timeout") return t("git.timeout");
+    return t("git.genericError");
+  });
+  const errHint = $derived.by(() => {
+    const c = status?.code;
+    if (c === "not_git") return t("git.notGitHint");
+    if (c === "parent_repo") return t("git.parentRepoHint", { root: status?.toplevel ?? "" });
+    if (c === "timeout") return t("git.timeoutHint");
+    return err ?? "";
+  });
+  const isDirSelected = $derived(!!selectedPath && selectedPath.endsWith("/"));
 
   const fileCount = $derived(status?.files.length ?? 0);
 
@@ -125,8 +152,19 @@
   });
 
   /** Parse unified diff → GitHub-style rows with dual line numbers + syntax HTML. */
-  function parseUnifiedDiff(raw: string, lang: string): DiffRow[] {
+  function parseUnifiedDiff(raw: string, lang: string): { rows: DiffRow[]; clipped: number } {
     const rows: DiffRow[] = [];
+    // Syntax highlighting is expensive: only for modest diffs.
+    const lines = raw.split("\n");
+    if (lines.length > HIGHLIGHT_MAX_LINES || raw.length > HIGHLIGHT_MAX_CHARS) {
+      lang = "";
+    }
+    let clipped = 0;
+    let budget = HIGHLIGHT_BUDGET;
+    if (lines.length > MAX_ROWS) {
+      clipped = lines.length - MAX_ROWS;
+      lines.length = MAX_ROWS;
+    }
     let oldLn = 0;
     let newLn = 0;
 
@@ -137,17 +175,20 @@
       marker: string,
       text: string,
     ): DiffRow {
+      if (text.length > MAX_LINE_CHARS) text = text.slice(0, MAX_LINE_CHARS) + " …";
+      const hl = !!lang && text.length <= HIGHLIGHT_MAX_LINE && budget > 0;
+      if (hl) budget -= text.length;
       return {
         kind,
         oldLn: old,
         newLn: neu,
         marker,
         text,
-        html: text ? (lang ? highlightInline(text, lang) : esc(text)) : " ",
+        html: text ? (hl ? highlightInline(text, lang) : esc(text)) : " ",
       };
     }
 
-    for (const line of raw.split("\n")) {
+    for (const line of lines) {
       if (
         line.startsWith("diff ") ||
         line.startsWith("index ") ||
@@ -209,11 +250,15 @@
     if (rows.length && rows[rows.length - 1].text === "" && rows[rows.length - 1].kind === "ctx") {
       rows.pop();
     }
-    return rows;
+    return { rows, clipped };
   }
 
   const codeLang = $derived(selectedPath ? langFromPath(selectedPath) : "");
-  const diffRows = $derived(patch ? parseUnifiedDiff(patch, codeLang) : []);
+  const parsed = $derived.by(() => {
+    if (!patch) return { rows: [] as DiffRow[], clipped: 0 };
+    return parseUnifiedDiff(patch, codeLang);
+  });
+  const diffRows = $derived(parsed.rows);
 
   function onResizePointerDown(e: PointerEvent) {
     e.preventDefault();
@@ -266,7 +311,7 @@
         patchErr = null;
       } else if (selectedPath) {
         // silent re-fetch selected diff after status refresh
-        void loadDiff(selectedPath, true);
+        if (!selectedPath.endsWith("/")) void loadDiff(selectedPath, true);
       }
     } catch (e) {
       err = e instanceof Error ? e.message : String(e);
@@ -281,12 +326,14 @@
     if (!quiet) {
       patchLoading = true;
       patch = "";
+      patchTruncated = false;
       patchErr = null;
     }
     try {
       const d = await getGitDiff(sessionId, path);
       if (selectedPath === path) {
         patch = d.patch || "";
+        patchTruncated = !!d.truncated;
         patchErr = null;
       }
     } catch (e) {
@@ -308,6 +355,7 @@
       return;
     }
     selectedPath = f.path;
+    if (f.path.endsWith("/")) return;
     await loadDiff(f.path);
   }
 
@@ -406,13 +454,14 @@
     <div class="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
       <FolderGit2 class="size-8 text-muted-foreground/50" />
       <p class="text-xs text-muted-foreground">
-        Open a session to see git changes for its folder.
+        {t("git.noSession")}
       </p>
     </div>
   {:else if err && !status?.ok}
     <div class="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
       <FolderGit2 class="size-8 text-muted-foreground/50" />
-      <p class="text-xs text-muted-foreground">{err}</p>
+      <p class="text-xs font-medium text-foreground/80">{errTitle}</p>
+      <p class="text-[11px] text-muted-foreground">{errHint}</p>
     </div>
   {:else}
     <div
@@ -435,6 +484,12 @@
       {/if}
     </div>
 
+    {#if status?.subdir}
+      <div class="border-b border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+        {t("git.subdir", { dir: status.subdir, root: status.toplevel ?? "" })}
+      </div>
+    {/if}
+
     <div class="flex min-h-0 flex-1 flex-col">
       <!-- file list -->
       <div
@@ -454,7 +509,7 @@
             <div
               class="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
             >
-              Files · {fileCount}
+              Files · {status?.total ?? fileCount}
             </div>
             {#each status?.files ?? [] as f (f.path)}
               {@const parts = fileParts(f.path)}
@@ -477,6 +532,11 @@
                 </span>
               </button>
             {/each}
+            {#if status?.truncated}
+              <div class="px-2 py-2 text-center text-[11px] text-muted-foreground">
+                {t("git.filesTruncated", { n: status.files.length, total: status.total ?? 0 })}
+              </div>
+            {/if}
           {/if}
         </div>
       </div>
@@ -513,7 +573,11 @@
             </button>
           </div>
           <div class="min-h-0 flex-1 overflow-auto">
-            {#if patchLoading}
+            {#if isDirSelected}
+              <div class="px-3 py-6 text-center text-[11px] text-muted-foreground">
+                {t("git.dirNoDiff")}
+              </div>
+            {:else if patchLoading}
               <div class="px-3 py-8 text-center text-xs text-muted-foreground">
                 Loading diff
               </div>
@@ -521,7 +585,7 @@
               <div class="px-3 py-6 text-center text-xs text-destructive">{patchErr}</div>
             {:else if !patch}
               <div class="px-3 py-8 text-center text-xs text-muted-foreground">
-                Empty diff
+                {t("git.emptyDiff")}
               </div>
             {:else}
               <div
@@ -549,6 +613,13 @@
                   </div>
                 {/each}
               </div>
+              {#if parsed.clipped > 0 || patchTruncated}
+                <div class="px-3 py-2 text-center text-[11px] text-muted-foreground">
+                  {t("git.diffTruncated", {
+                    more: parsed.clipped > 0 ? t("git.moreHidden", { n: parsed.clipped }) : "",
+                  })}
+                </div>
+              {/if}
             {/if}
           </div>
         </div>

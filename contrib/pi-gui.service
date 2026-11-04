@@ -1,0 +1,13 @@
+[Unit]
+Description=pi-gui web UI for pi
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/pi-gui/env
+ExecStart=/usr/bin/env pi-gui
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

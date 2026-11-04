@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18n, tr } from "$lib/i18n.svelte";
   /** Collapsible tool call / result row for chat. */
   import HighlightedPre from "$lib/components/HighlightedPre.svelte";
   import LinkifiedPre from "$lib/components/LinkifiedPre.svelte";
@@ -135,8 +136,10 @@
               }}
             >
               {resultOpen
-                ? "Show less"
-                : `Show more (${resultLines.length - maxResultLines} lines)`}
+                ? tr("Show less")
+                : i18n.locale === "zh-CN"
+                  ? `显示更多（${resultLines.length - maxResultLines} 行）`
+                  : `Show more (${resultLines.length - maxResultLines} lines)`}
             </button>
           {/if}
         </div>
