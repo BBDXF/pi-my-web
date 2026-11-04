@@ -40,7 +40,7 @@
 		cn(
 			"min-w-0 w-full max-w-full break-words whitespace-normal text-[14px] leading-[1.6] text-foreground",
 			variant === "card" &&
-				"overflow-hidden rounded-lg border border-border/70 bg-white px-4 py-3 text-foreground shadow-[0_18px_34px_-20px_var(--pi-canvas)] dark:border-white/10 dark:bg-zinc-800",
+				"overflow-hidden rounded-lg border border-border/70 bg-card px-4 py-3 text-foreground shadow-[0_18px_34px_-20px_var(--pi-canvas)]",
 			variant === "plain" && "bg-transparent p-0 shadow-none",
 			className,
 		),

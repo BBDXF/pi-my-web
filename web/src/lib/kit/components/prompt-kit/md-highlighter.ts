@@ -31,6 +31,22 @@ import yaml from "shiki/langs/yaml.mjs";
 
 import githubDark from "shiki/themes/github-dark.mjs";
 import githubLight from "shiki/themes/github-light.mjs";
+import oneLight from "shiki/themes/one-light.mjs";
+import solarizedLight from "shiki/themes/solarized-light.mjs";
+import oneDarkPro from "shiki/themes/one-dark-pro.mjs";
+import dracula from "shiki/themes/dracula.mjs";
+import tokyoNight from "shiki/themes/tokyo-night.mjs";
+
+/** App theme → Shiki theme key (emitted as --shiki-<key>; see app.css [data-code]). */
+const SHIKI_THEMES = {
+	light: "github-light",
+	dark: "github-dark",
+	"one-light": "one-light",
+	"solarized-light": "solarized-light",
+	"one-dark-pro": "one-dark-pro",
+	dracula: "dracula",
+	"tokyo-night": "tokyo-night",
+} as const;
 
 const core = createHighlighterCoreSync({
 	engine: createJavaScriptRegexEngine(),
@@ -55,7 +71,7 @@ const core = createHighlighterCoreSync({
 		typescript,
 		yaml,
 	],
-	themes: [githubLight, githubDark],
+	themes: [githubLight, githubDark, oneLight, solarizedLight, oneDarkPro, dracula, tokyoNight],
 });
 
 const loadedLangs = new Set(core.getLoadedLanguages());
@@ -73,7 +89,7 @@ export const mdHighlighter: ShikiHighlighter = {
 		try {
 			return core.codeToHtml(code, {
 				lang,
-				themes: { light: "github-light", dark: "github-dark" },
+				themes: SHIKI_THEMES,
 				defaultColor: false,
 			});
 		} catch {
@@ -92,7 +108,7 @@ export function highlightInline(code: string, lang: string): string {
 	try {
 		const html = core.codeToHtml(code, {
 			lang,
-			themes: { light: "github-light", dark: "github-dark" },
+			themes: SHIKI_THEMES,
 			defaultColor: false,
 		});
 		const m = html.match(/<code[^>]*>([\s\S]*)<\/code>/);

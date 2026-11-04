@@ -3,6 +3,16 @@
   import type { SessionRow } from "$lib/api";
   import Separator from "agentic-ui-kit/components/ui/separator.svelte";
   import { t } from "$lib/i18n.svelte";
+  import ContextMenu, { type MenuItem } from "$lib/components/ContextMenu.svelte";
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
+  import ExternalLink from "@lucide/svelte/icons/external-link";
+  import Pencil from "@lucide/svelte/icons/pencil";
+  import GitFork from "@lucide/svelte/icons/git-fork";
+  import Minimize2 from "@lucide/svelte/icons/minimize-2";
+  import FileDown from "@lucide/svelte/icons/file-down";
+  import Copy from "@lucide/svelte/icons/copy";
+  import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import SoundToggle from "$lib/components/SoundToggle.svelte";
   import Plus from "@lucide/svelte/icons/plus";
   import Folder from "@lucide/svelte/icons/folder";
@@ -25,6 +35,8 @@
     onCollapse?: () => void;
     /** Open command palette (⌘K / Ctrl+K). */
     onOpenPalette?: () => void;
+    /** Context-menu action for a session row. */
+    onSessionAction?: (action: string, s: SessionRow) => void;
   };
 
   let {
@@ -35,6 +47,7 @@
     onNew,
     onCollapse,
     onOpenPalette,
+    onSessionAction,
   }: Props = $props();
 
   const isMac =
@@ -342,6 +355,44 @@
     if (next.join("\0") !== sessionOrder.join("\0")) saveSessionOrder(next);
   }
 
+  let menu = $state<{ s: SessionRow; x: number; y: number } | null>(null);
+
+  function openMenu(e: MouseEvent, s: SessionRow, anchor?: HTMLElement) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (anchor) {
+      const r = anchor.getBoundingClientRect();
+      menu = { s, x: r.left, y: r.bottom + 4 };
+    } else {
+      menu = { s, x: e.clientX, y: e.clientY };
+    }
+  }
+
+  const menuItems = $derived.by((): MenuItem[] => {
+    if (!menu) return [];
+    const s = menu.s;
+    const live = Boolean(s.running);
+    const busy = Boolean(s.streaming || s.isCompacting || s.compacting);
+    const items: MenuItem[] = [{ id: "open", label: t("ctx.open"), icon: ExternalLink }];
+    if (live) {
+      items.push({ id: "rename", label: t("ctx.rename"), icon: Pencil });
+      items.push({ id: "clone", label: t("ctx.clone"), icon: GitFork, disabled: busy });
+      items.push({ id: "compact", label: t("ctx.compact"), icon: Minimize2, disabled: busy });
+      items.push({ id: "export-html", label: t("ctx.exportHtml"), icon: FileDown });
+    }
+    if (s.path) items.push({ id: "copy-path", label: t("ctx.copyPath"), icon: Copy, separator: true });
+    items.push({ id: "copy-id", label: t("ctx.copyId"), icon: Copy, separator: !s.path });
+    if (s.path) {
+      items.push(
+        s.archived
+          ? { id: "unarchive", label: t("ctx.restore"), icon: ArchiveRestore, separator: true }
+          : { id: "archive", label: t("ctx.archive"), icon: Archive, separator: true },
+      );
+      items.push({ id: "delete", label: t("ctx.delete"), icon: Trash2, danger: true });
+    }
+    return items;
+  });
+
   function onDragEnd() {
     drag = null;
   }
@@ -461,6 +512,8 @@
                     <div
                       class="sidebar-row has-two-actions group/item flex items-center rounded-lg transition-colors hover:bg-muted/80
                         {selectedId === s.id ? 'bg-muted' : ''}"
+                      data-session-row={s.id}
+                      oncontextmenu={(e) => openMenu(e, s)}
                     >
                       <button
                         type="button"
@@ -511,6 +564,17 @@
                         >
                           <Archive class="size-3.5" />
                         </button>
+                        <button
+                          type="button"
+                          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                          title={t("ctx.more")}
+                          aria-label={t("ctx.more")}
+                          aria-haspopup="menu"
+                          data-session-more
+                          onclick={(e) => openMenu(e, s, e.currentTarget as HTMLElement)}
+                        >
+                          <Ellipsis class="size-3.5" />
+                        </button>
                       </div>
                     </div>
                   </li>
@@ -543,6 +607,8 @@
                 <div
                   class="group/item flex items-center gap-0.5 rounded-lg transition-colors hover:bg-muted/80
                     {selectedId === s.id ? 'bg-muted' : ''}"
+                  data-session-row={s.id}
+                  oncontextmenu={(e) => openMenu(e, s)}
                 >
                   <button
                     type="button"
@@ -553,6 +619,17 @@
                     <span class="block min-w-0 truncate text-xs font-medium text-muted-foreground">
                       {label(s)}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    class="mr-0.5 flex opacity-0 transition-opacity focus-visible:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100 size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title={t("ctx.more")}
+                    aria-label={t("ctx.more")}
+                    aria-haspopup="menu"
+                    data-session-more
+                    onclick={(e) => openMenu(e, s, e.currentTarget as HTMLElement)}
+                  >
+                    <Ellipsis class="size-3.5" />
                   </button>
                 </div>
               </li>
@@ -622,6 +699,21 @@
   ></div>
 </aside>
 
+{#if menu}
+  <ContextMenu
+    items={menuItems}
+    x={menu.x}
+    y={menu.y}
+    label={t("ctx.menu")}
+    onClose={() => (menu = null)}
+    onSelect={(id) => {
+      const target = menu!.s;
+      menu = null;
+      onSessionAction?.(id, target);
+    }}
+  />
+{/if}
+
 <style>
   .sidebar-row {
     position: relative;
@@ -651,7 +743,22 @@
 
   .sidebar-row.has-two-actions:hover .sidebar-row-main,
   .sidebar-row.has-two-actions:focus-within .sidebar-row-main {
-    padding-right: 3.75rem;
+    padding-right: 5.25rem;
+  }
+
+  /* Touch: no hover, keep the ⋯ button visible */
+  @media (hover: none) {
+    li .sidebar-row-actions {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    li .sidebar-row-actions > :not([data-session-more]) {
+      display: none;
+    }
+    li .sidebar-row.has-two-actions .sidebar-row-main,
+    li .sidebar-row .sidebar-row-main {
+      padding-right: 2.25rem;
+    }
   }
 
   .sidebar-row:hover .sidebar-row-actions,

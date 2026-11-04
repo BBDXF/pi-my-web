@@ -366,9 +366,9 @@
   }
 
   function statusClass(s: string) {
-    if (s === "A" || s === "U") return "text-emerald-600 dark:text-emerald-400";
-    if (s === "D") return "text-red-600 dark:text-red-400";
-    if (s === "R") return "text-sky-600 dark:text-sky-400";
+    if (s === "A" || s === "U") return "text-[var(--diff-add)]";
+    if (s === "D") return "text-[var(--diff-del)]";
+    if (s === "R") return "text-[var(--diff-hunk)]";
     return "text-amber-600 dark:text-amber-400";
   }
 
@@ -474,9 +474,9 @@
       {#if fileCount > 0}
         <span class="flex shrink-0 items-center gap-1 tabular-nums text-muted-foreground">
           {#if counts.M}<span class="text-amber-600 dark:text-amber-400">{counts.M}M</span>{/if}
-          {#if counts.A}<span class="text-emerald-600 dark:text-emerald-400">{counts.A}A</span>{/if}
-          {#if counts.U}<span class="text-emerald-600 dark:text-emerald-400">{counts.U}U</span>{/if}
-          {#if counts.D}<span class="text-red-600 dark:text-red-400">{counts.D}D</span>{/if}
+          {#if counts.A}<span class="text-[var(--diff-add)]">{counts.A}A</span>{/if}
+          {#if counts.U}<span class="text-[var(--diff-add)]">{counts.U}U</span>{/if}
+          {#if counts.D}<span class="text-[var(--diff-del)]">{counts.D}D</span>{/if}
           {#if counts.R}<span class="text-sky-600 dark:text-sky-400">{counts.R}R</span>{/if}
         </span>
       {:else}
@@ -660,20 +660,20 @@
     width: 1%;
     min-width: 2.25rem;
     padding: 0 0.4rem;
-    border-right: 1px solid #d0d7de;
-    color: #656d76;
-    background: #f6f8fa;
+    border-right: 1px solid var(--border);
+    color: var(--muted-foreground);
+    background: var(--diff-num-bg, var(--card));
     white-space: nowrap;
     user-select: none;
   }
   .gh-diff-marker {
     width: 1rem;
-    color: #656d76;
+    color: var(--muted-foreground);
     white-space: nowrap;
   }
   .gh-diff-code {
     padding: 0 0.5rem 0 0.25rem;
-    color: #1f2328;
+    color: var(--foreground);
   }
   .gh-diff-wrap .gh-diff-code {
     white-space: pre-wrap;
@@ -693,41 +693,36 @@
   }
 
   .gh-diff-add .gh-diff-num {
-    background: #ccffd8;
-    color: #1f2328;
-    border-right-color: #b4f1c8;
+    background: var(--diff-add-num);
+    color: var(--foreground);
   }
   .gh-diff-add .gh-diff-marker,
   .gh-diff-add .gh-diff-code {
-    background: #e6ffec;
-    color: #1f2328;
+    background: var(--diff-add-bg);
   }
   .gh-diff-add .gh-diff-marker {
-    color: #1a7f37;
+    color: var(--diff-add);
   }
 
   .gh-diff-del .gh-diff-num {
-    background: #ffd7d5;
-    color: #1f2328;
-    border-right-color: #ffc1be;
+    background: var(--diff-del-num);
+    color: var(--foreground);
   }
   .gh-diff-del .gh-diff-marker,
   .gh-diff-del .gh-diff-code {
-    background: #ffebe9;
-    color: #1f2328;
+    background: var(--diff-del-bg);
   }
   .gh-diff-del .gh-diff-marker {
-    color: #cf222e;
+    color: var(--diff-del);
   }
 
   .gh-diff-hunk .gh-diff-num {
-    background: #ddf4ff;
-    border-right-color: #b6e3ff;
+    background: var(--diff-hunk-num);
   }
   .gh-diff-hunk .gh-diff-marker,
   .gh-diff-hunk .gh-diff-code {
-    background: #ddf4ff;
-    color: #0550ae;
+    background: var(--diff-hunk-bg);
+    color: var(--diff-hunk);
   }
 
   .gh-diff-meta .gh-diff-num {
@@ -735,70 +730,8 @@
     border-right-color: transparent;
   }
   .gh-diff-meta .gh-diff-code {
-    color: #656d76;
+    color: var(--muted-foreground);
     padding-top: 0.15rem;
     padding-bottom: 0.15rem;
-  }
-
-  .gh-diff-ctx .gh-diff-num {
-    background: #f6f8fa;
-  }
-
-  :global(.dark) .gh-diff-num {
-    background: #161b22;
-    border-right-color: #30363d;
-    color: #7d8590;
-  }
-  :global(.dark) .gh-diff-marker {
-    color: #7d8590;
-  }
-  :global(.dark) .gh-diff-code {
-    color: #e6edf3;
-  }
-
-  :global(.dark) .gh-diff-add .gh-diff-num {
-    background: rgba(46, 160, 67, 0.2);
-    border-right-color: rgba(46, 160, 67, 0.3);
-    color: #7ee787;
-  }
-  :global(.dark) .gh-diff-add .gh-diff-marker,
-  :global(.dark) .gh-diff-add .gh-diff-code {
-    background: rgba(46, 160, 67, 0.15);
-    color: #e6edf3;
-  }
-  :global(.dark) .gh-diff-add .gh-diff-marker {
-    color: #3fb950;
-  }
-
-  :global(.dark) .gh-diff-del .gh-diff-num {
-    background: rgba(248, 81, 73, 0.2);
-    border-right-color: rgba(248, 81, 73, 0.3);
-    color: #ffa198;
-  }
-  :global(.dark) .gh-diff-del .gh-diff-marker,
-  :global(.dark) .gh-diff-del .gh-diff-code {
-    background: rgba(248, 81, 73, 0.15);
-    color: #e6edf3;
-  }
-  :global(.dark) .gh-diff-del .gh-diff-marker {
-    color: #f85149;
-  }
-
-  :global(.dark) .gh-diff-hunk .gh-diff-num {
-    background: rgba(56, 139, 253, 0.15);
-    border-right-color: rgba(56, 139, 253, 0.25);
-  }
-  :global(.dark) .gh-diff-hunk .gh-diff-marker,
-  :global(.dark) .gh-diff-hunk .gh-diff-code {
-    background: rgba(56, 139, 253, 0.1);
-    color: #79c0ff;
-  }
-
-  :global(.dark) .gh-diff-meta .gh-diff-code {
-    color: #7d8590;
-  }
-
-  :global(.dark) .gh-diff-ctx .gh-diff-num {
-    background: #161b22;
   }
 </style>

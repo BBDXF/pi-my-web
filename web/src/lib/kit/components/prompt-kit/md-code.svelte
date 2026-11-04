@@ -48,7 +48,7 @@
 </script>
 
 <div
-	class="md-code group/mdcode relative my-2 min-w-0 max-w-full overflow-hidden rounded-lg border border-border/80 bg-muted/40"
+	class="md-code group/mdcode relative my-2 min-w-0 max-w-full overflow-hidden rounded-lg border border-border/80 bg-[var(--code-bg,var(--muted))]"
 	data-lang={label}
 >
 	<div

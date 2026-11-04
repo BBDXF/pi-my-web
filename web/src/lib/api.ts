@@ -11,6 +11,7 @@ export type SessionRow = {
   messageCount?: number;
   firstMessage?: string;
   running: boolean;
+  archived?: boolean;
   /** Live TUI (or external) attach — hub does not own/dispose the AgentSession */
   bound?: boolean;
   streaming?: boolean;

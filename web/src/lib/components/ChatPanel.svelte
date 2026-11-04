@@ -1532,7 +1532,7 @@
   });
 
   const promptBoxClass = $derived(
-    `border-black/[0.08] bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900 ${
+    `border-border bg-card shadow-sm ${
       bashMode ? "ring-1 ring-amber-500/50" : ""
     }`,
   );

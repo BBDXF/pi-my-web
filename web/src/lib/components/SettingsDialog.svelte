@@ -44,29 +44,41 @@
       <section>
         <h3 class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("settings.theme")}</h3>
         <p class="mb-3 text-xs text-muted-foreground">{t("settings.themeHint")}</p>
-        <div class="grid grid-cols-2 gap-2.5">
-          {#each THEMES as th (th.id)}
-            <button
-              type="button"
-              class="group relative overflow-hidden rounded-lg border text-left transition-all hover:-translate-y-px {appTheme.id === th.id ? 'border-primary ring-1 ring-primary' : 'border-border'}"
-              aria-pressed={appTheme.id === th.id}
-              onclick={() => setAppTheme(th.id)}
-            >
-              <div class="flex h-14 gap-1 p-2" style="background:{th.bg}">
-                <div class="w-1/4 rounded" style="background:{th.surface};border:1px solid {th.border}"></div>
-                <div class="flex flex-1 flex-col justify-center gap-1.5">
-                  <div class="h-1.5 w-3/4 rounded-full" style="background:{th.fg}"></div>
-                  <div class="h-1.5 w-1/2 rounded-full" style="background:{th.mutedFg}"></div>
-                  <div class="h-1.5 w-1/3 rounded-full" style="background:{th.primary}"></div>
+        {#each [{ dark: false, key: "settings.themeLight" }, { dark: true, key: "settings.themeDark" }] as grp (grp.key)}
+          <h4 class="mb-1.5 mt-3 text-[11px] font-medium text-muted-foreground">{t(grp.key as "settings.themeLight")}</h4>
+          <div class="grid grid-cols-2 gap-2.5">
+            {#each THEMES.filter((x) => x.dark === grp.dark) as th (th.id)}
+              <button
+                type="button"
+                data-theme-card={th.id}
+                class="group relative overflow-hidden rounded-lg border text-left transition-all hover:-translate-y-px {appTheme.id === th.id ? 'border-primary ring-1 ring-primary' : 'border-border'}"
+                aria-pressed={appTheme.id === th.id}
+                onclick={() => setAppTheme(th.id)}
+              >
+                <div class="flex h-16 gap-1 p-2" style="background:{th.bg}">
+                  <div class="flex w-1/4 flex-col gap-1 rounded p-1" style="background:{th.surface};border:1px solid {th.border}">
+                    <div class="h-1 rounded-full" style="background:{th.muted}"></div>
+                    <div class="h-1 w-2/3 rounded-full" style="background:{th.mutedFg}"></div>
+                  </div>
+                  <div class="flex flex-1 flex-col justify-center gap-1.5">
+                    <div class="h-1.5 w-3/4 rounded-full" style="background:{th.fg}"></div>
+                    <div class="h-1.5 w-1/2 rounded-full" style="background:{th.mutedFg}"></div>
+                    <div class="flex gap-1">
+                      <div class="h-1.5 w-5 rounded-full" style="background:{th.primary}"></div>
+                      <div class="h-1.5 w-3 rounded-full" style="background:{th.accent}"></div>
+                      <div class="h-1.5 w-3 rounded-full" style="background:{th.add}"></div>
+                      <div class="h-1.5 w-3 rounded-full" style="background:{th.del}"></div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div class="flex items-center justify-between bg-card px-2.5 py-1.5 text-xs font-medium">
-                {th.label}
-                {#if appTheme.id === th.id}<Check class="size-3.5" />{/if}
-              </div>
-            </button>
-          {/each}
-        </div>
+                <div class="flex items-center justify-between bg-card px-2.5 py-1.5 text-xs font-medium">
+                  {i18n.locale === "zh-CN" ? th.labelZh : th.label}
+                  {#if appTheme.id === th.id}<Check class="size-3.5" />{/if}
+                </div>
+              </button>
+            {/each}
+          </div>
+        {/each}
       </section>
     </div>
   </div>

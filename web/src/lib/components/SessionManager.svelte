@@ -58,6 +58,11 @@
     return [...map.entries()].map(([cwd, rows]) => ({ cwd, rows }));
   });
 
+  /** Last two path segments; full path stays in the tooltip. */
+  function shortCwd(p: string) {
+    return p.split("/").filter(Boolean).slice(-2).join("/") || p;
+  }
+
   function ts(s: StoredSession) {
     const n = s.modified ? new Date(s.modified).getTime() : 0;
     return Number.isFinite(n) ? n : 0;
@@ -125,9 +130,9 @@
       {:else}
         {#each filtered as g (g.cwd)}
           <section class="mb-4">
-            <h2 class="mb-1 flex items-center gap-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground" title={g.cwd}>
+            <h2 class="mb-1 flex items-center gap-1.5 px-1 text-xs font-medium text-muted-foreground" title={g.cwd}>
               <Folder class="size-3.5" />
-              <span class="truncate">{g.cwd || t("common.other")}</span>
+              <span class="truncate">{g.cwd ? shortCwd(g.cwd) : t("common.other")}</span>
               <span class="ml-auto tabular-nums">{g.rows.length}</span>
             </h2>
             <ul class="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">

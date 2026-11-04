@@ -9,7 +9,7 @@ Repository guidance for contributors and coding agents. The published npm packag
 | Audience | Open |
 |------|------|
 | **Coding agents / any code change** | [llms.txt](./llms.txt) first |
-| Humans / install / what it does | [docs landing page](./docs/src/routes/index.tsx) |
+| Humans / install / what it does | [README](./README.md) |
 | Package overview | [README.md](./README.md) |
 
 Do **not** crawl old docs for a small UI change; the operating contract lives in `llms.txt`.
@@ -22,7 +22,6 @@ server/               # cli, http, hub, sse-protocol
 web/src/lib/
   api.ts · chat-stream.ts · plugins/ · components/ · kit/
 dist/                 # production UI (npm run build)
-docs/                 # TanStack Start landing site
 ```
 
 UI source is `web/`; `dist/` is build output (what the server ships).

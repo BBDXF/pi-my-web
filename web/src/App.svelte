@@ -18,6 +18,11 @@
     abort,
     shareSession,
     getAuthStatus,
+    archiveStored,
+    unarchiveStored,
+    deleteStored,
+    downloadText,
+    messageText,
     logout,
   } from "$lib/api";
   import { builtinByName } from "$lib/slash-builtins";
@@ -32,6 +37,7 @@
   import SettingsDialog from "$lib/components/SettingsDialog.svelte";
   import SessionManager from "$lib/components/SessionManager.svelte";
   import { t } from "$lib/i18n.svelte";
+  import TextPromptDialog from "$lib/components/TextPromptDialog.svelte";
   import { loadAndApplyCustomization } from "$lib/customization";
   const SIDEBAR_KEY = "pi-gui-sidebar-open";
   const GIT_SIDEBAR_KEY = "pi-gui-git-sidebar-open";
@@ -368,6 +374,131 @@
     } finally {
       opening = false;
     }
+  }
+
+  // ── Sidebar context-menu actions ──
+  let renameTarget = $state<SessionRow | null>(null);
+  let deleteTarget = $state<SessionRow | null>(null);
+  let deleteBusy = $state(false);
+
+  function sameSession(a: SessionRow | undefined, b: SessionRow) {
+    return Boolean(a && (a.id === b.id || (b.path && a.path === b.path)));
+  }
+
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      err = text;
+    }
+  }
+
+  /** Dispose the live hub session (if any) so the file can be archived/deleted safely. */
+  async function releaseLive(s: SessionRow) {
+    if (s.running) {
+      try {
+        await closeSession(s.id);
+      } catch {
+        /* already gone */
+      }
+    }
+    if (sameSession(selected, s)) {
+      selected = undefined;
+      setSessionUrl(undefined);
+    }
+    sessions = sessions.filter((x) => !sameSession(x, s) && x.id !== s.id);
+  }
+
+  async function onSessionAction(action: string, s: SessionRow) {
+    err = null;
+    try {
+      switch (action) {
+        case "open":
+          await onSelect(s);
+          break;
+        case "rename":
+          renameTarget = s;
+          break;
+        case "clone": {
+          const { leafId } = await getTree(s.id);
+          if (!leafId) {
+            warn = t("app.cloneEmpty");
+            break;
+          }
+          const row = await forkSession(s.id, leafId, { position: "at" });
+          await onSelect({ ...row, running: true });
+          break;
+        }
+        case "compact":
+          await compactSession(s.id);
+          break;
+        case "export-html": {
+          const { messages } = await getMessages(s.id);
+          const base =
+            (s.name || s.sessionName || s.id).replace(/[^\w.-]+/g, "_").slice(0, 60) || "session";
+          const esc = (x: string) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+          const parts = messages.map(
+            (m) => `<section><h3>${esc(m.role || "unknown")}</h3><pre>${esc(messageText(m))}</pre></section>`,
+          );
+          downloadText(
+            `${base}.html`,
+            `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(base)}</title><style>body{font-family:system-ui;max-width:48rem;margin:2rem auto;padding:0 1rem}pre{white-space:pre-wrap;word-break:break-word;background:#faf9f7;padding:1rem;border-radius:8px}h3{text-transform:capitalize}</style></head><body><h1>${esc(base)}</h1>${parts.join("\n")}</body></html>`,
+            "text/html",
+          );
+          break;
+        }
+        case "copy-path":
+          if (s.path) await copyText(s.path);
+          break;
+        case "copy-id":
+          await copyText(s.id);
+          break;
+        case "archive":
+          if (s.path) {
+            await releaseLive(s);
+            await archiveStored(s.path);
+          }
+          break;
+        case "unarchive":
+          if (s.path) await unarchiveStored(s.path);
+          break;
+        case "delete":
+          deleteTarget = s;
+          return;
+      }
+    } catch (e) {
+      err = e instanceof Error ? e.message : String(e);
+    }
+    await refresh();
+  }
+
+  async function confirmRename(name: string) {
+    const s = renameTarget;
+    renameTarget = null;
+    if (!s) return;
+    try {
+      await patchSession(s.id, { name });
+      onSessionUpdate(s.id, { name });
+    } catch (e) {
+      err = e instanceof Error ? e.message : String(e);
+    }
+    await refresh();
+  }
+
+  async function confirmDelete() {
+    const s = deleteTarget;
+    if (!s?.path || deleteBusy) return;
+    deleteBusy = true;
+    try {
+      await releaseLive(s);
+      await deleteStored(s.path);
+    } catch (e) {
+      err = e instanceof Error ? e.message : String(e);
+    } finally {
+      deleteBusy = false;
+      deleteTarget = null;
+    }
+    await refresh();
   }
 
   async function onCompact() {
@@ -717,6 +848,7 @@
       onNew={onNew}
       onCollapse={() => setSidebarOpen(false)}
       onOpenPalette={() => (cmdkOpen = true)}
+      {onSessionAction}
     />
   {/if}
   {#if managerOpen}
@@ -855,6 +987,29 @@
     onNavigate={confirmTreeNavigation}
   />
 {/if}
+{/if}
+
+{#if renameTarget}
+  <TextPromptDialog
+    title={t("ctx.renameTitle")}
+    value={renameTarget.name || renameTarget.sessionName || ""}
+    onSubmit={confirmRename}
+    onCancel={() => (renameTarget = null)}
+  />
+{/if}
+
+{#if deleteTarget}
+  <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" role="presentation" onclick={() => !deleteBusy && (deleteTarget = null)}>
+    <div role="alertdialog" aria-modal="true" tabindex="-1" class="w-full max-w-sm rounded-2xl border border-border bg-popover p-5 shadow-2xl" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === "Escape" && !deleteBusy && (deleteTarget = null)}>
+      <h2 class="text-base font-semibold">{t("mgr.confirmTitle")}</h2>
+      <p class="mt-1 truncate text-sm font-medium">{deleteTarget.name || deleteTarget.sessionName || deleteTarget.firstMessage?.trim() || deleteTarget.id.slice(0, 8)}</p>
+      <p class="mt-2 text-sm text-muted-foreground">{t("mgr.confirmBody")}</p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" class="h-9 rounded-md border border-border px-3 text-sm hover:bg-muted" disabled={deleteBusy} onclick={() => (deleteTarget = null)}>{t("common.cancel")}</button>
+        <button type="button" data-confirm-delete class="h-9 rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50" disabled={deleteBusy} onclick={confirmDelete}>{t("common.delete")}</button>
+      </div>
+    </div>
+  </div>
 {/if}
 
 <SettingsDialog open={settingsOpen} onClose={() => (settingsOpen = false)} />

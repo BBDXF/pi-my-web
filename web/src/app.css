@@ -9,7 +9,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --font-inter: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-inter: "Inter Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "WenQuanYi Micro Hei", ui-sans-serif, system-ui, sans-serif;
   --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   /* Chat shell / sticky prompt canvas (warm off-white, not zinc gray) */
   --pi-canvas: #faf9f7;
@@ -84,4 +84,38 @@ html[data-pi-motion="none"] *::after {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Code highlight for ported VS Code themes: pick the matching Shiki variable. */
+.md-root .shiki,
+.md-root .shiki span,
+html[data-code] .shiki,
+html[data-code] .shiki span,
+html[data-code] .gh-diff-code span {
+  background-color: transparent !important;
+}
+html[data-code="one-light"] .md-root .shiki span,
+html[data-code="one-light"] .highlighted-pre .shiki span,
+html[data-code="one-light"] .gh-diff-code span {
+  color: var(--shiki-one-light) !important;
+}
+html[data-code="solarized-light"] .md-root .shiki span,
+html[data-code="solarized-light"] .highlighted-pre .shiki span,
+html[data-code="solarized-light"] .gh-diff-code span {
+  color: var(--shiki-solarized-light) !important;
+}
+html[data-code="one-dark-pro"] .md-root .shiki span,
+html[data-code="one-dark-pro"] .highlighted-pre .shiki span,
+html[data-code="one-dark-pro"] .gh-diff-code span {
+  color: var(--shiki-one-dark-pro) !important;
+}
+html[data-code="dracula"] .md-root .shiki span,
+html[data-code="dracula"] .highlighted-pre .shiki span,
+html[data-code="dracula"] .gh-diff-code span {
+  color: var(--shiki-dracula) !important;
+}
+html[data-code="tokyo-night"] .md-root .shiki span,
+html[data-code="tokyo-night"] .highlighted-pre .shiki span,
+html[data-code="tokyo-night"] .gh-diff-code span {
+  color: var(--shiki-tokyo-night) !important;
 }
