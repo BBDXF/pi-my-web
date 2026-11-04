@@ -56,8 +56,8 @@ The Changes panel no longer freezes the tab on large diffs (size and highlight c
 Requires Node.js ≥ 20 and a working pi install (models and auth already set up).
 
 ```bash
-pi install npm:pi-my-web         # as a pi extension (/gui)
-npm i -g pi-my-web               # standalone daemon: provides the `pi-my-web` command
+pi install npm:https://github.com/BBDXF/pi-my-web/releases/latest/download/pi-my-web.tgz  # as a pi extension (/gui)
+npm i -g https://github.com/BBDXF/pi-my-web/releases/latest/download/pi-my-web.tgz  # standalone daemon: provides the `pi-my-web` command
 ```
 
 Or from git:
@@ -73,7 +73,7 @@ The built UI in `dist/` is committed. To change the UI, run `npm install --prefi
 ### As a pi extension (`/gui`)
 
 ```bash
-pi install npm:pi-my-web
+pi install npm:https://github.com/BBDXF/pi-my-web/releases/latest/download/pi-my-web.tgz
 # or from a clone: pi install /path/to/pi-my-web
 ```
 
@@ -91,7 +91,7 @@ This mode listens on loopback only and has no password, like the terminal UI on 
 ### As a standalone daemon
 
 ```bash
-npm i -g pi-my-web               # provides the `pi-my-web` command (or `npm install -g .` from a clone)
+npm i -g https://github.com/BBDXF/pi-my-web/releases/latest/download/pi-my-web.tgz  # provides the `pi-my-web` command (or `npm install -g .` from a clone)
 # or run it straight from the clone:
 PI_MY_WEB_PASSWORD=change-me node bin/pi-my-web
 ```
