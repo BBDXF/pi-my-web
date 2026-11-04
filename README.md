@@ -55,10 +55,14 @@ The Changes panel no longer freezes the tab on large diffs (size and highlight c
 
 Requires Node.js ≥ 20 and a working pi install (models and auth already set up).
 
+Install from the prebuilt package attached to each [GitHub Release](https://github.com/BBDXF/pi-my-web/releases) (built and tested by CI):
+
 ```bash
 pi install npm:https://github.com/BBDXF/pi-my-web/releases/latest/download/pi-my-web.tgz  # as a pi extension (/gui)
 npm i -g https://github.com/BBDXF/pi-my-web/releases/latest/download/pi-my-web.tgz  # standalone daemon: provides the `pi-my-web` command
 ```
+
+To pin a version, replace `latest/download` with `download/v0.5.0` (the asset `pi-my-web-0.5.0.tgz` is also attached). Re-run the same command to upgrade.
 
 Or from git:
 
@@ -176,12 +180,25 @@ pi-my-web 是 [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent
 - **会话管理与右键菜单**：归档 / 恢复 / 删除、压缩、分叉、重命名、导出 HTML、复制路径或 ID。
 - **Git 面板修复**：大 diff 不再卡死标签页，git 超时 5 秒，路径与非仓库提示更准确。
 
-**安装：**
+**安装（推荐使用 GitHub Release 包）：**
+
+```bash
+# 作为 pi 插件，在 pi 中使用 /gui 或 /web
+pi install npm:https://github.com/BBDXF/pi-my-web/releases/latest/download/pi-my-web.tgz
+
+# 作为独立服务（提供 pi-my-web 命令），访问 http://127.0.0.1:3847
+npm i -g https://github.com/BBDXF/pi-my-web/releases/latest/download/pi-my-web.tgz
+PI_MY_WEB_PASSWORD=你的密码 pi-my-web
+
+# 固定版本：把 latest/download 换成 download/v0.5.0
+# 开机自启：见上文 systemd 部分（contrib/pi-my-web.service）
+```
+
+从源码安装：
 
 ```bash
 git clone https://github.com/BBDXF/pi-my-web.git && cd pi-my-web && npm install
-pi install /path/to/pi-my-web          # 在 pi 中使用 /gui
-PI_MY_WEB_PASSWORD=你的密码 node bin/pi-my-web        # 或作为独立服务运行，访问 http://127.0.0.1:3847
+pi install /path/to/pi-my-web
 ```
 
 **安全提示：** 默认只监听 `127.0.0.1`。如需对外访问，必须设置 `PI_MY_WEB_PASSWORD`，并放在带 TLS 的反向代理或 SSH 隧道之后；不要把端口直接暴露到公网，因为该界面可通过智能体执行命令、修改文件。
