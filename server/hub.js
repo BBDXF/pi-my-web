@@ -10,6 +10,8 @@ import { randomBytes } from "node:crypto";
 import { annotateSubagents } from "./stored-sessions.js";
 import {
   createAgentSession,
+  createAgentSessionFromServices,
+  createAgentSessionServices,
   getAgentDir,
   ModelRegistry,
   ModelRuntime,
@@ -130,6 +132,33 @@ function pickModelFromScope(scopedModels, settingsManager, modelRuntime) {
     model: chosen.model,
     thinkingLevel: chosen.thinkingLevel,
   };
+}
+
+/** @type {Promise<any[]> | null} */
+let builtInsPromise = null;
+/** pi's built-in extensions (codemode, mcp, tool-search, llama.cpp); not a package export. */
+function loadBuiltInExtensions() {
+  builtInsPromise ??= (async () => {
+    try {
+      const { createRequire } = await import("node:module");
+      const { pathToFileURL } = await import("node:url");
+      // package.json isn't exported; main entry is <pkg>/dist/index.js
+      const entry = createRequire(import.meta.url).resolve(
+        "@earendil-works/pi-coding-agent",
+      );
+      const mod = await import(
+        pathToFileURL(join(dirname(entry), "extensions", "index.js")).href
+      );
+      return mod.builtInExtensions ?? [];
+    } catch (e) {
+      console.error(
+        "[pi-my-web] built-in extensions unavailable:",
+        e instanceof Error ? e.message : e,
+      );
+      return [];
+    }
+  })();
+  return builtInsPromise;
 }
 
 /** @typedef {import("@earendil-works/pi-coding-agent").AgentSession} AgentSession */
@@ -475,6 +504,23 @@ export class SessionHub {
         settingsManager,
         modelRuntime,
       );
+    }
+    const builtins = await loadBuiltInExtensions();
+    if (builtins.length) {
+      const services = await createAgentSessionServices({
+        cwd,
+        agentDir,
+        settingsManager,
+        modelRuntime,
+        resourceLoaderOptions: { extensionFactories: builtins },
+      });
+      return createAgentSessionFromServices({
+        services,
+        sessionManager: opts.sessionManager,
+        scopedModels: scopedModels.length ? scopedModels : undefined,
+        model: fromScope.model,
+        thinkingLevel: fromScope.thinkingLevel,
+      });
     }
     return createAgentSession({
       cwd,
@@ -1698,7 +1744,11 @@ export class SessionHub {
     if (exts) {
       out.extensions = (exts.extensions ?? []).map((e) => ({
         path: e.path,
-        name: String(e.path ?? "").split("/").filter(Boolean).slice(-2).join("/"),
+        name:
+          (e.sourceInfo?.source === "builtin"
+            ? String(e.path ?? "").replace(/^builtin:/, "")
+            : String(e.sourceInfo?.source ?? "").replace(/^npm:/, "")) ||
+          String(e.path ?? "").split("/").filter(Boolean).slice(-2).join("/"),
         source: e.sourceInfo?.source,
       }));
       out.extensionErrors = (exts.errors ?? []).map((e) => ({
