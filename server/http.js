@@ -837,6 +837,12 @@ async function handleApi(req, res) {
       return json(res, 200, hub.setTools(id, body.active));
     }
 
+    // GET /api/sessions/:id/capabilities — tools / MCP / extensions / skills (read-only)
+    id = sessionAction(pathname, "capabilities");
+    if (method === "GET" && id) {
+      return json(res, 200, hub.getCapabilities(id));
+    }
+
     // GET /api/sessions/:id/skills — skill workspace index
     // POST /api/sessions/:id/skills — create/import a user or project skill
     id = sessionAction(pathname, "skills");

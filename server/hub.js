@@ -1635,6 +1635,94 @@ export class SessionHub {
   }
 
   /**
+   * Read-only summary of tools / MCP / extensions / skills for the status chip.
+   * Every section is optional: a missing SDK API just omits the field.
+   * @param {string} id
+   */
+  getCapabilities(id) {
+    const session = this.require(id).session;
+    /** @template T @param {() => T} fn @returns {T | undefined} */
+    const tryGet = (fn) => {
+      try {
+        return fn();
+      } catch {
+        return undefined;
+      }
+    };
+    const out = {};
+    const infos = tryGet(() => session.getAllTools());
+    const activeNames = new Set(tryGet(() => session.getActiveToolNames()) ?? []);
+    if (Array.isArray(infos)) {
+      const mcp = new Map();
+      out.tools = infos.map((t) => {
+        const ns = t.namespace?.name ?? "";
+        const si = t.sourceInfo;
+        let source = "extension";
+        let server;
+        if (ns.startsWith("mcp__") || String(t.name).startsWith("mcp__")) {
+          source = "mcp";
+          server = ns.startsWith("mcp__")
+            ? ns.slice(5)
+            : String(t.name).split("__")[1] || ns;
+        } else if (
+          !si ||
+          si.source === "builtin" ||
+          si.origin === "builtin" ||
+          String(si.path ?? "").startsWith("<builtin")
+        ) {
+          source = "built-in";
+        }
+        const active = activeNames.has(t.name);
+        if (server !== undefined) {
+          const g = mcp.get(server) ?? { name: server, tools: 0, active: 0 };
+          g.tools++;
+          if (active) g.active++;
+          mcp.set(server, g);
+        }
+        const desc = String(t.description ?? "").split("\n")[0].trim();
+        return {
+          name: t.name,
+          description: desc.length > 160 ? `${desc.slice(0, 157)}…` : desc,
+          active,
+          source,
+          ...(server !== undefined ? { server } : {}),
+          ...(source === "extension" && si
+            ? { origin: si.source || si.path || undefined }
+            : {}),
+          exposure: t.exposure,
+        };
+      });
+      out.mcpServers = [...mcp.values()];
+    }
+    const exts = tryGet(() => session.resourceLoader.getExtensions());
+    if (exts) {
+      out.extensions = (exts.extensions ?? []).map((e) => ({
+        path: e.path,
+        name: String(e.path ?? "").split("/").filter(Boolean).slice(-2).join("/"),
+        source: e.sourceInfo?.source,
+      }));
+      out.extensionErrors = (exts.errors ?? []).map((e) => ({
+        path: e.path,
+        error: String(e.error ?? e.message ?? e),
+      }));
+    }
+    const skills = tryGet(() => session.resourceLoader.getSkills());
+    if (skills) {
+      out.skills = (skills.skills ?? []).map((k) => ({
+        name: k.name,
+        description: String(k.description ?? "").split("\n")[0].slice(0, 160),
+      }));
+    }
+    const pt = tryGet(() => session.promptTemplates);
+    if (Array.isArray(pt)) out.promptTemplates = pt.length;
+    const cmds = tryGet(() => session.extensionRunner.getRegisteredCommands());
+    if (Array.isArray(cmds)) {
+      out.commands = cmds.map((c) => c.invocationName).filter(Boolean);
+    }
+    return out;
+  }
+
+  /**
    * Skills loaded for this session (pi `/skill:name`).
    * @param {string} id
    */

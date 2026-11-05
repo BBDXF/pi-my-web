@@ -1036,3 +1036,26 @@ export function deleteStored(path: string) {
     body: JSON.stringify({ path }),
   });
 }
+
+export type CapTool = {
+  name: string;
+  description: string;
+  active: boolean;
+  source: "built-in" | "extension" | "mcp";
+  server?: string;
+  origin?: string;
+  exposure?: string;
+};
+export type Capabilities = {
+  tools?: CapTool[];
+  mcpServers?: { name: string; tools: number; active: number; connected?: boolean }[];
+  extensions?: { path: string; name: string; source?: string }[];
+  extensionErrors?: { path: string; error: string }[];
+  skills?: { name: string; description: string }[];
+  promptTemplates?: number;
+  commands?: string[];
+};
+
+export function getCapabilities(id: string) {
+  return req<Capabilities>(`/api/sessions/${encodeURIComponent(id)}/capabilities`);
+}

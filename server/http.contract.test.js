@@ -131,6 +131,19 @@ describe("HTTP wire contract", () => {
     assert.ok(body.open >= 1);
   });
 
+  it("GET /api/sessions/:id/capabilities lists tools by source", async () => {
+    const { res, body } = await api(base, `/api/sessions/${sessionId}/capabilities`);
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(body.tools));
+    const read = body.tools.find((t) => t.name === "read");
+    assert.ok(read, "read tool present");
+    assert.equal(read.source, "built-in");
+    assert.equal(typeof read.active, "boolean");
+    assert.ok(Array.isArray(body.mcpServers));
+    assert.ok(Array.isArray(body.extensions));
+    assert.ok(Array.isArray(body.skills));
+  });
+
   it("GET /api/customization returns safe defaults", async () => {
     const { res, body } = await api(base, "/api/customization");
     assert.equal(res.status, 200);

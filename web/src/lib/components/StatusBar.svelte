@@ -1,7 +1,7 @@
 <script lang="ts">
   /** Session header — title / cwd / status. Near-limit shows Compact. */
   import type { SessionRow } from "$lib/api";
-  import { compactSession, renameSession } from "$lib/api";
+  import { compactSession, renameSession, getCapabilities, type Capabilities, type CapTool } from "$lib/api";
   import Badge from "agentic-ui-kit/components/ui/badge.svelte";
   import Button from "agentic-ui-kit/components/ui/button.svelte";
   import Input from "agentic-ui-kit/components/ui/input.svelte";
@@ -9,6 +9,7 @@
   import TooltipContent from "agentic-ui-kit/components/ui/tooltip-content.svelte";
   import TooltipTrigger from "agentic-ui-kit/components/ui/tooltip-trigger.svelte";
   import CircleDollarSign from "@lucide/svelte/icons/circle-dollar-sign";
+  import Wrench from "@lucide/svelte/icons/wrench";
   import Gauge from "@lucide/svelte/icons/gauge";
   import { t } from "$lib/i18n.svelte";
   import CommandIcon from "@lucide/svelte/icons/command";
@@ -86,6 +87,49 @@
   const nearLimit = $derived(ctxPct != null && ctxPct >= 80);
   let popOpen = $state(false);
   const hasUsage = $derived(u.pct != null || u.cost != null || u.total != null);
+
+  let caps = $state<Capabilities | null>(null);
+  let capsOpen = $state(false);
+  let capsQuery = $state("");
+  let capsSeq = 0;
+  async function loadCaps() {
+    const id = session.id;
+    const seq = ++capsSeq;
+    try {
+      const c = await getCapabilities(id);
+      if (seq === capsSeq) caps = c;
+    } catch {
+      /* optional info */
+    }
+  }
+  $effect(() => {
+    void session.id;
+    caps = null;
+    capsQuery = "";
+    capsOpen = false;
+    loadCaps();
+  });
+  const toolList = $derived(caps?.tools ?? []);
+  const activeCount = $derived(toolList.filter((x) => x.active).length);
+  const mcpCount = $derived(caps?.mcpServers?.length ?? 0);
+  const capsGroups = $derived.by(() => {
+    const q = capsQuery.trim().toLowerCase();
+    const list = toolList
+      .filter((x) => !q || x.name.toLowerCase().includes(q) || x.description.toLowerCase().includes(q))
+      .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name));
+    const groups: { key: string; label: string; tools: CapTool[] }[] = [];
+    const add = (key: string, label: string, x: CapTool) => {
+      let g = groups.find((v) => v.key === key);
+      if (!g) groups.push((g = { key, label, tools: [] }));
+      g.tools.push(x);
+    };
+    for (const x of list) {
+      if (x.source === "built-in") add("0", t("caps.builtin"), x);
+      else if (x.source === "extension") add("1", t("caps.extension"), x);
+      else add(`2:${x.server}`, `${t("caps.mcpSrc")} · ${x.server}`, x);
+    }
+    return groups.sort((a, b) => a.key.localeCompare(b.key));
+  });
 
   function fmtTok(n: number | null) {
     if (n == null) return "—";
@@ -223,6 +267,84 @@
   </div>
 
   <div class="flex shrink-0 items-center gap-2">
+    {#if caps?.tools}
+      <div
+        class="relative"
+        role="group"
+        aria-label={t("caps.title")}
+        onmouseenter={() => { capsOpen = true; loadCaps(); }}
+        onmouseleave={() => (capsOpen = false)}
+      >
+        <button
+          type="button"
+          class="inline-flex h-6 items-center gap-1 rounded-md border border-border/70 px-1.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground transition-colors hover:bg-muted"
+          aria-expanded={capsOpen}
+          aria-label={t("caps.title")}
+          onclick={() => { capsOpen = !capsOpen; if (capsOpen) loadCaps(); }}
+        >
+          <Wrench class="size-3" />
+          <span class="hidden sm:inline">{activeCount} {t("caps.tools")}{mcpCount ? ` · ${mcpCount} ${t("caps.mcp")}` : ""}</span>
+        </button>
+        {#if capsOpen}
+          <div class="absolute right-0 top-full z-40 pt-1.5">
+            <div class="w-72 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-popover p-3 text-xs text-popover-foreground shadow-xl">
+              {#if toolList.length > 15}
+                <Input class="mb-2 h-7 text-xs" placeholder={t("caps.search")} bind:value={capsQuery} />
+              {/if}
+              <div class="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+                <section>
+                  <h4 class="mb-1 font-medium">{t("caps.toolsH")} <span class="font-mono text-muted-foreground">{activeCount}/{toolList.length}</span></h4>
+                  {#each capsGroups as g (g.key)}
+                    <div class="mt-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">{g.label}</div>
+                    <ul>
+                      {#each g.tools as x (x.name)}
+                        <li class="flex items-baseline gap-1.5 py-0.5 {x.active ? '' : 'opacity-45'}" title={x.description + (x.active ? '' : ` (${t("caps.inactive")})`)}>
+                          <span class="size-1.5 shrink-0 rounded-full {x.active ? 'bg-emerald-500' : 'bg-muted-foreground/50'}"></span>
+                          <span class="truncate font-mono">{x.name}</span>
+                        </li>
+                      {/each}
+                    </ul>
+                  {/each}
+                </section>
+                {#if caps.mcpServers}
+                  <section>
+                    <h4 class="mb-1 font-medium">{t("caps.mcpH")}</h4>
+                    {#each caps.mcpServers as m (m.name)}
+                      <div class="flex justify-between py-0.5"><span class="truncate font-mono">{m.name}</span><span class="font-mono text-muted-foreground">{m.active}/{m.tools}</span></div>
+                    {:else}
+                      <div class="text-muted-foreground">{t("caps.empty")}</div>
+                    {/each}
+                  </section>
+                {/if}
+                {#if caps.extensions}
+                  <section>
+                    <h4 class="mb-1 font-medium">{t("caps.extH")} <span class="font-mono text-muted-foreground">{caps.extensions.length}</span></h4>
+                    {#each caps.extensions as e (e.path)}
+                      <div class="truncate py-0.5 font-mono" title={e.path}>{e.name || e.path}</div>
+                    {:else}
+                      <div class="text-muted-foreground">{t("caps.empty")}</div>
+                    {/each}
+                    {#each caps.extensionErrors ?? [] as e (e.path)}
+                      <div class="truncate py-0.5 text-destructive" title={e.error}>{e.path}</div>
+                    {/each}
+                  </section>
+                {/if}
+                {#if caps.skills}
+                  <section>
+                    <h4 class="mb-1 font-medium">{t("caps.skillsH")} <span class="font-mono text-muted-foreground">{caps.skills.length}</span></h4>
+                    {#each caps.skills as k (k.name)}
+                      <div class="truncate py-0.5 font-mono" title={k.description}>{k.name}</div>
+                    {:else}
+                      <div class="text-muted-foreground">{t("caps.empty")}</div>
+                    {/each}
+                  </section>
+                {/if}
+              </div>
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
     {#if hasUsage}
       <div
         class="relative"
