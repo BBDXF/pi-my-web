@@ -1,6 +1,6 @@
 {
   "name": "pi-my-web",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Web UI for pi: multi-session chat, standalone daemon with password login, themes, i18n (en/zh), usage details and a session manager.",
   "type": "module",
   "license": "MIT",

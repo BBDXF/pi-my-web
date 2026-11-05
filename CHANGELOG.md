@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- Subagent support for [@tintinweb/pi-subagents](https://www.npmjs.com/package/@tintinweb/pi-subagents): subagent sessions are nested under their parent in the sidebar, open in a read-only live view, and show token usage and tools.
+- Archive, restore and delete a parent together with its subagents; clean-up action for subagents (refused while one is running).
+- Tools chip and popover per chat: active tools, MCP, extensions and skills (`GET /api/sessions/:id/capabilities`).
+- Web sessions load pi's built-in extensions (codemode, MCP, tool_search).
+- Sidebar token total includes subagents; subagent group toggle fix.
+
 ## 0.5.0
 
 First release of the `pi-my-web` fork of pi-gui-extension.
