@@ -46,6 +46,18 @@ The Changes panel no longer freezes the tab on large diffs (size and highlight c
 
 ![Git changes](screenshots/git-changes.png)
 
+### Subagents ([@tintinweb/pi-subagents](https://www.npmjs.com/package/@tintinweb/pi-subagents))
+
+Works with the pi-subagents plugin out of the box; no extra setup.
+
+- **Nested in the sidebar.** Subagent sessions (header `parentSession` plus a `Type#hex` name such as `Explore#af285ecd`) are grouped under their parent session instead of cluttering the top level. The group shows the count and can be collapsed.
+- **Read-only live view.** Open a subagent to watch its transcript update while it runs; you can't type into it.
+- **Usage and tools.** The subagent view has the same token/cost chip and a tools chip listing the tools it actually received. The sidebar shows the token total including subagents.
+- **Archive / restore / delete together.** These actions on a parent also apply to its subagents. A *Clean up subagents* action removes them; it's refused (409) while a subagent is still running.
+- **Built-in extensions.** Web sessions load pi's built-in extensions (codemode, mcp, tool-search, ...), so subagents spawned from the web get the same tools as in the terminal.
+
+Limits: only pi-subagents' session format is recognised for now; other subagent plugins show their sessions as normal top-level sessions. Agent definitions (`~/.pi/agent/agents/*.md`) are read when a session is created, so open a new session after changing them. Live stop/steer of a subagent from the web isn't supported yet.
+
 ### Smaller changes
 
 - The Quit command was removed from the UI.
@@ -178,6 +190,13 @@ pi-my-web 是 [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent
 - **8 套主题**：浅色、深色，以及 GitHub Light、Atom One Light、Solarized Light、One Dark Pro、Dracula、Tokyo Night（移植自 VS Code 官方主题）。
 - **详细的上下文 / Token 用量**：已用 / 窗口、输入、输出、缓存读写、合计、费用和模型。
 - **会话管理与右键菜单**：归档 / 恢复 / 删除、压缩、分叉、重命名、导出 HTML、复制路径或 ID。
+- **子代理（[@tintinweb/pi-subagents](https://www.npmjs.com/package/@tintinweb/pi-subagents)）**：不用额外配置。
+  - 子代理会话会挂在父会话下面，可以折叠，并显示数量。
+  - 点开子代理是只读视图，运行中会实时刷新。
+  - 子代理视图里有 Token 用量和实际工具列表，侧边栏显示的 Token 合计包含子代理。
+  - 归档、恢复或删除父会话时，子代理会一起处理。可以单独清理子代理；有子代理还在运行时会拒绝清理。
+  - 网页会话会加载 pi 的内置扩展（codemode、mcp 等），从网页派出的子代理拿到的工具和终端里一样。
+  - 限制：目前只认得 pi-subagents 的会话格式，其他插件的子代理会显示在顶层。修改代理定义后要新建会话才会生效。还不能在网页里停止或引导正在运行的子代理。
 - **Git 面板修复**：大 diff 不再卡死标签页，git 超时 5 秒，路径与非仓库提示更准确。
 
 **安装（推荐使用 GitHub Release 包）：**
