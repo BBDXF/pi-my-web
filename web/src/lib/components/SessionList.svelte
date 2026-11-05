@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import type { SessionRow } from "$lib/api";
   import Separator from "agentic-ui-kit/components/ui/separator.svelte";
   import { t, i18n } from "$lib/i18n.svelte";
@@ -252,18 +252,35 @@
   const topLevel = $derived(sessions.filter((s) => !(s.parentId && s.subagent && childrenOf.has(s.parentId))));
 
   /** Parents whose subagent list the user expanded (default collapsed). */
-  let expandedSubs = $state(new Set<string>());
-  function toggleSubs(id: string, e: MouseEvent) {
-    e.stopPropagation();
-    const next = new Set(expandedSubs);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    expandedSubs = next;
-  }
-  function subsOpen(parentId: string) {
-    if (expandedSubs.has(parentId)) return true;
+  // Explicit user choice wins; otherwise auto-open while one of the children is selected.
+  let expandedSubs = $state(new Map<string, boolean>());
+  function childSelected(parentId: string) {
     return Boolean(selectedId && childrenOf.get(parentId)?.some((c) => c.id === selectedId));
   }
+  function subsOpen(parentId: string) {
+    return expandedSubs.get(parentId) ?? childSelected(parentId);
+  }
+  function toggleSubs(id: string, e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = new Map(expandedSubs);
+    next.set(id, !subsOpen(id));
+    expandedSubs = next;
+  }
+  // Selecting a child (e.g. via a link) re-opens its group even if it was collapsed earlier.
+  $effect(() => {
+    const sel = selectedId;
+    if (!sel) return;
+    untrack(() => {
+      for (const [pid, kids] of childrenOf) {
+        if (kids.some((c) => c.id === sel) && expandedSubs.get(pid) === false) {
+          const next = new Map(expandedSubs);
+          next.delete(pid);
+          expandedSubs = next;
+        }
+      }
+    });
+  });
   function subLabel(c: SessionRow) {
     return c.subagent?.type || c.name || c.id.slice(0, 8);
   }
