@@ -8,7 +8,7 @@ const agent = process.env.PI_CODING_AGENT_DIR || mkdtempSync(join(tmpdir(), "pig
 process.env.PI_CODING_AGENT_DIR = agent;
 delete process.env.PI_GUI_SESSIONS_DIR;
 delete process.env.PI_MY_WEB_SESSIONS_DIR;
-const { listStored, readTranscript, parseTranscript, moveStored, deleteStored, cleanupSubagents } = await import("./stored-sessions.js");
+const { listStored, readTranscript, parseTranscript, aggregateTranscript, moveStored, deleteStored, cleanupSubagents } = await import("./stored-sessions.js");
 
 const dir = join(agent, "sessions", "--proj--");
 const parentFile = join(dir, "2026-01-01T00-00-00-000Z_parent-1.jsonl");
@@ -41,7 +41,7 @@ describe("subagent sessions", () => {
     assert.equal(parent.parentId, undefined);
     const done = rows.find((r) => r.id === "c-done");
     assert.equal(done.parentId, "parent-1");
-    assert.deepEqual(done.subagent, { type: "Explore", description: "Investigate the thing", status: "done" });
+    assert.deepEqual(done.subagent, { type: "Explore", description: "Investigate the thing", status: "done", tokens: 0 });
     const run = rows.find((r) => r.id === "c-run");
     assert.equal(run.parentId, "parent-1");
     assert.equal(run.subagent.type, "general-purpose");
@@ -101,5 +101,51 @@ describe("subagent sessions", () => {
     const d = await deleteStored(parentFile);
     assert.equal(d.deleted.length, 2);
     assert.ok(!existsSync(join(dir, "c-live.jsonl")));
+  });
+
+  it("aggregates usage, models, context % and tool calls/errors", () => {
+    const asst = (model, u, parts) => ({ role: "assistant", provider: "p", model, stopReason: "stop", content: parts, usage: u });
+    const msgs = [
+      { role: "user", content: "x" },
+      asst("m1", { input: 10, output: 5, cacheRead: 100, cacheWrite: 20, totalTokens: 135, cost: { total: 0.5 } }, [
+        { type: "toolCall", id: "a", name: "read" },
+        { type: "toolCall", id: "b", name: "bash" },
+      ]),
+      { role: "toolResult", toolCallId: "a", toolName: "read", isError: false },
+      { role: "toolResult", toolCallId: "b", isError: true },
+      asst("m2", { input: 1, output: 1 }, [{ type: "toolCall", id: "c", name: "read" }, { type: "text", text: "done" }]),
+    ];
+    const r = aggregateTranscript(msgs, [{ name: "read" }], (p, id) => (id === "m2" ? 1000 : undefined));
+    assert.equal(r.usage.input, 11);
+    assert.equal(r.usage.cacheRead, 100);
+    assert.equal(r.usage.total, 137); // 135 + (1+1 fallback sum)
+    assert.equal(r.usage.cost, 0.5);
+    assert.deepEqual(r.usage.models.map((m) => [m.id, m.turns]), [["m1", 1], ["m2", 1]]);
+    assert.equal(r.usage.contextTokens, 2);
+    assert.equal(r.usage.percent, 0.2);
+    assert.deepEqual(r.tools.used, [
+      { name: "read", calls: 2, errors: 0 },
+      { name: "bash", calls: 1, errors: 1 },
+    ]);
+    assert.deepEqual(r.tools.available, [{ name: "read" }]);
+    assert.equal(aggregateTranscript([]).usage.cost, null);
+  });
+
+  it("reports tokens on list rows and the recorded tool set in the transcript", async () => {
+    const f = join(dir, "c-tools.jsonl");
+    writeFileSync(parentFile, lines([{ type: "session", id: "parent-1", cwd: "/proj" }, u("hi")]));
+    writeFileSync(f, lines([
+      { type: "session", id: "c-tools", cwd: "/proj", parentSession: parentFile },
+      { type: "session_info", name: "Explore#deadbeef" },
+      { type: "message", message: { role: "system", content: "", toolsAdded: [{ name: "grep", description: "Search\nmore" }] } },
+      u("go"),
+      { type: "message", message: { role: "assistant", stopReason: "stop", model: "m", provider: "p", usage: { input: 3, output: 4, totalTokens: 7 }, content: [{ type: "toolCall", id: "t", name: "grep" }] } },
+    ]));
+    const row = (await listStored(false)).find((x) => x.id === "c-tools");
+    assert.equal(row.subagent.tokens, 7);
+    const t = await readTranscript(f, (p, id) => (id === "m" ? 70 : undefined));
+    assert.deepEqual(t.tools.available, [{ name: "grep", description: "Search" }]);
+    assert.equal(t.usage.percent, 10);
+    assert.equal(t.tools.used[0].calls, 1);
   });
 });

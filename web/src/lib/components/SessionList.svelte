@@ -3,7 +3,7 @@
   import type { SessionRow } from "$lib/api";
   import Separator from "agentic-ui-kit/components/ui/separator.svelte";
   import { t, i18n } from "$lib/i18n.svelte";
-  import { relativeTime } from "$lib/utils";
+  import { relativeTime, fmtTokens } from "$lib/utils";
   import Bot from "@lucide/svelte/icons/bot";
   import ContextMenu, { type MenuItem } from "$lib/components/ContextMenu.svelte";
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
@@ -524,16 +524,16 @@
                 ></span>
                 <span class="min-w-0 flex-1 truncate text-[11px] font-medium">{subLabel(c)}</span>
                 <span class="shrink-0 text-[10px] text-muted-foreground">
-                  {c.subagent?.status === "running" ? t("sidebar.subagentRunning") : t("sidebar.subagentDone")} · {relativeTime(c.modified, i18n.locale, t("time.now"))}
+                  {c.subagent?.status === "running" ? t("sidebar.subagentRunning") : t("sidebar.subagentDone")} · {relativeTime(c.modified, i18n.locale, t("time.now"))}{#if c.subagent?.tokens}{" · "}<span class="font-mono tabular-nums" title={t("usage.total")}>{fmtTokens(c.subagent.tokens)}</span>{/if}
                 </span>
               </span>
               {#if c.subagent?.description}
-                <span class="mt-px block truncate pl-3 text-[10px] text-muted-foreground">{c.subagent.description}</span>
+                <span class="mt-px block truncate pl-3 pr-6 text-[10px] text-muted-foreground">{c.subagent.description}</span>
               {/if}
             </button>
             <button
               type="button"
-              class="absolute right-1 top-1 flex size-5 items-center justify-center rounded-md bg-muted text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100"
+              class="absolute bottom-0.5 right-1 flex size-5 items-center justify-center rounded-md bg-muted text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100"
               title={t("ctx.more")}
               aria-label={t("ctx.more")}
               aria-haspopup="menu"

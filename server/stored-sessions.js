@@ -121,14 +121,92 @@ const RUNNING_FRESH_MS = 15_000;
 const RUNNING_STALE_MS = 30 * 60_000;
 const FINAL_STOP = new Set(["stop", "length", "error", "aborted"]);
 
+const num = (x) => (typeof x === "number" && Number.isFinite(x) ? x : 0);
+
 /**
- * Parse a session JSONL into display messages + subagent status.
+ * Sum token usage over assistant messages and count tool calls / errors.
+ * @param {Array<any>} messages
+ * @param {Array<{name: string, description?: string}> | null} available tool set recorded in the session (system message)
+ * @param {(provider: string, id: string) => number | undefined} [contextWindowFor]
+ */
+export function aggregateTranscript(messages, available = null, contextWindowFor) {
+  const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, cost: 0, hasCost: false };
+  /** @type {Map<string, {provider: string, id: string, turns: number}>} */
+  const models = new Map();
+  const calls = new Map(); // name -> {calls, errors}
+  const nameById = new Map();
+  const bump = (name) => calls.get(name) ?? calls.set(name, { name, calls: 0, errors: 0 }).get(name);
+  let last;
+  for (const m of messages) {
+    if (m.role === "assistant") {
+      const u = m.usage;
+      if (u) {
+        usage.input += num(u.input);
+        usage.output += num(u.output);
+        usage.cacheRead += num(u.cacheRead);
+        usage.cacheWrite += num(u.cacheWrite);
+        const turn = num(u.totalTokens) || num(u.input) + num(u.output) + num(u.cacheRead) + num(u.cacheWrite);
+        usage.total += turn;
+        const c = typeof u.cost === "number" ? u.cost : u.cost?.total;
+        if (typeof c === "number") {
+          usage.cost += c;
+          usage.hasCost = true;
+        }
+        last = { provider: m.provider, id: m.model, turn };
+      }
+      if (m.model) {
+        const k = `${m.provider ?? ""}/${m.model}`;
+        const e = models.get(k) ?? models.set(k, { provider: m.provider ?? "", id: m.model, turns: 0 }).get(k);
+        e.turns++;
+      }
+      if (Array.isArray(m.content)) {
+        for (const part of m.content) {
+          if (part?.type === "toolCall" && part.name) {
+            bump(part.name).calls++;
+            if (part.id) nameById.set(part.id, part.name);
+          }
+        }
+      }
+    } else if (m.role === "toolResult" && m.isError) {
+      const name = m.toolName || nameById.get(m.toolCallId);
+      if (name) bump(name).errors++;
+    }
+  }
+  const win = last && contextWindowFor ? contextWindowFor(last.provider, last.id) : undefined;
+  return {
+    usage: {
+      input: usage.input,
+      output: usage.output,
+      cacheRead: usage.cacheRead,
+      cacheWrite: usage.cacheWrite,
+      total: usage.total,
+      cost: usage.hasCost ? usage.cost : null,
+      models: [...models.values()],
+      contextTokens: last?.turn ?? null,
+      contextWindow: win ?? null,
+      percent: win && last ? (last.turn / win) * 100 : null,
+    },
+    tools: {
+      used: [...calls.values()].sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name)),
+      available,
+    },
+  };
+}
+
+/**
+ * Parse a session JSONL into display messages + subagent status + usage/tools.
  * @param {string} raw @param {Date | number} mtime
  */
-export function parseTranscript(raw, mtime, now = Date.now()) {
+export function parseTranscript(raw, mtime, now = Date.now(), contextWindowFor) {
+  const p = parseRaw(raw);
+  return finish(p, mtime, now, contextWindowFor);
+}
+
+function parseRaw(raw) {
   const messages = [];
   let description = "";
   let last;
+  let available = null;
   for (const line of raw.split("\n")) {
     if (!line) continue;
     let e;
@@ -137,17 +215,52 @@ export function parseTranscript(raw, mtime, now = Date.now()) {
     } catch {
       continue; // partially written trailing line
     }
-    if (e.type !== "message" || !e.message || e.message.role === "system") continue;
+    if (e.type !== "message" || !e.message) continue;
+    if (e.message.role === "system") {
+      if (Array.isArray(e.message.toolsAdded) && !available) {
+        available = e.message.toolsAdded
+          .filter((x) => x?.name)
+          .map((x) => ({ name: x.name, description: String(x.description ?? "").split("\n")[0].slice(0, 160) }));
+      }
+      continue;
+    }
     messages.push(e.message);
     last = e.message;
     if (!description && e.message.role === "user") {
       description = textOf(e.message.content).trim().split("\n")[0].replace(/\s+/g, " ").slice(0, 140);
     }
   }
-  const age = now - new Date(mtime).getTime();
   const finished = last?.role === "assistant" && FINAL_STOP.has(last.stopReason);
-  const running = age < RUNNING_FRESH_MS || (!finished && age < RUNNING_STALE_MS);
-  return { messages, description, status: running ? "running" : "done" };
+  return { messages, description, finished, available, agg: null };
+}
+
+function finish(p, mtime, now, contextWindowFor) {
+  const age = now - new Date(mtime).getTime();
+  const running = age < RUNNING_FRESH_MS || (!p.finished && age < RUNNING_STALE_MS);
+  p.agg ??= aggregateTranscript(p.messages, p.available);
+  const agg = contextWindowFor ? aggregateTranscript(p.messages, p.available, contextWindowFor) : p.agg;
+  return {
+    messages: p.messages,
+    description: p.description,
+    status: running ? "running" : "done",
+    usage: agg.usage,
+    tools: agg.tools,
+  };
+}
+
+/** mtime+size keyed parse cache so the sidebar list stays cheap. */
+const parseCache = new Map();
+async function readParsed(file) {
+  const st = await stat(file);
+  const key = `${st.mtimeMs}:${st.size}`;
+  const hit = parseCache.get(file);
+  if (hit?.key === key) return { p: hit.p, mtime: st.mtime };
+  const p = parseRaw(await readFile(file, "utf8"));
+  p.agg = aggregateTranscript(p.messages, p.available);
+  parseCache.delete(file);
+  parseCache.set(file, { key, p });
+  if (parseCache.size > 400) parseCache.delete(parseCache.keys().next().value);
+  return { p, mtime: st.mtime };
 }
 
 /** Session id embedded in a pi session filename (`<timestamp>_<id>.jsonl`). @param {string} p */
@@ -161,13 +274,16 @@ async function subagentOf(r) {
   if (!r.parentSession || !m || !r.path) return null;
   let description = "";
   let status = "done";
+  let tokens = 0;
   try {
-    const [raw, st] = await Promise.all([readFile(r.path, "utf8"), stat(r.path)]);
-    ({ description, status } = parseTranscript(raw, st.mtime));
+    const { p, mtime } = await readParsed(r.path);
+    const f = finish(p, mtime, Date.now());
+    ({ description, status } = f);
+    tokens = f.usage.total;
   } catch {
     /* keep defaults */
   }
-  return { type: m[1], description, status };
+  return { type: m[1], description, status, tokens };
 }
 
 /**
@@ -240,11 +356,11 @@ async function childrenOrBlock(p) {
 }
 
 /** Read-only transcript for the web viewer. @param {string} p */
-export async function readTranscript(p) {
+export async function readTranscript(p, contextWindowFor) {
   const v = validateStoredPath(p);
-  const [raw, st] = await Promise.all([readFile(v.path, "utf8"), stat(v.path)]);
-  const t = parseTranscript(raw, st.mtime);
-  return { ...t, modified: st.mtime.toISOString() };
+  const { p: parsed, mtime } = await readParsed(v.path);
+  const t = finish(parsed, mtime, Date.now(), contextWindowFor);
+  return { ...t, modified: mtime.toISOString() };
 }
 
 /** @param {boolean} archived */

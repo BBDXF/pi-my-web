@@ -19,3 +19,11 @@ export function relativeTime(iso: string | Date | undefined, locale: string, now
   if (Math.abs(hr) < 24) return rtf.format(hr, "hour");
   return rtf.format(Math.round(hr / 24), "day");
 }
+
+/** Compact token count: 950, 12.4k, 1.2M. */
+export function fmtTokens(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return String(Math.round(n));
+}

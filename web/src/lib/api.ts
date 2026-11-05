@@ -14,7 +14,7 @@ export type SessionRow = {
   parentSession?: string;
   /** Set when this row is a subagent session: parent's session id. */
   parentId?: string;
-  subagent?: { type: string; description: string; status: "running" | "done" };
+  subagent?: { type: string; description: string; status: "running" | "done"; tokens?: number };
   running: boolean;
   archived?: boolean;
   /** Live TUI (or external) attach — hub does not own/dispose the AgentSession */
@@ -257,7 +257,27 @@ export function getMessages(id: string) {
   );
 }
 
+export type SubagentUsage = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  total: number;
+  cost: number | null;
+  models: { provider: string; id: string; turns: number }[];
+  contextTokens: number | null;
+  contextWindow: number | null;
+  percent: number | null;
+};
+export type SubagentTools = {
+  used: { name: string; calls: number; errors: number }[];
+  /** Tool set recorded in the session file; null if the file doesn't record one. */
+  available: { name: string; description?: string }[] | null;
+};
+
 export type SubagentTranscript = {
+  usage: SubagentUsage;
+  tools: SubagentTools;
   messages: ChatMessage[];
   description: string;
   status: "running" | "done";

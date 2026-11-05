@@ -419,6 +419,9 @@ function lastEventIdFrom(req, searchParams) {
 /** Active auth for this process's server (set in createServer). */
 let auth = createAuth({ password: "" });
 
+/** @type {{ at: number, map: Map<string, number> } | null} */
+let ctxCache = null;
+
 async function handleApi(req, res) {
   const { pathname, searchParams } = parsePath(req.url || "/");
   const method = req.method || "GET";
@@ -456,10 +459,27 @@ async function handleApi(req, res) {
       return json(res, 401, { error: "Unauthorized" });
     }
 
+    /** provider/id → context window, from the model registry (cached 60s). */
+    async function contextWindowLookup() {
+      if (!ctxCache || Date.now() - ctxCache.at > 60_000) {
+        const map = new Map();
+        try {
+          for (const m of (await hub.listModels()) ?? []) {
+            if (m.contextWindow) map.set(`${m.provider}/${m.id}`, m.contextWindow);
+          }
+        } catch {
+          /* optional */
+        }
+        ctxCache = { at: Date.now(), map };
+      }
+      const { map } = ctxCache;
+      return (provider, id) => map.get(`${provider}/${id}`);
+    }
+
     // GET /api/subagent-transcript?path= — read-only parse of a persisted session file
     if (method === "GET" && pathname === "/api/subagent-transcript") {
       try {
-        return json(res, 200, await readTranscript(searchParams.get("path")));
+        return json(res, 200, await readTranscript(searchParams.get("path"), await contextWindowLookup()));
       } catch (e) {
         return json(res, e?.status || 500, { error: e instanceof Error ? e.message : String(e) });
       }
