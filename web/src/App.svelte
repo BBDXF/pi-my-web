@@ -27,6 +27,7 @@
   } from "$lib/api";
   import { builtinByName } from "$lib/slash-builtins";
   import ChatPanel from "$lib/components/ChatPanel.svelte";
+  import SubagentView from "$lib/components/SubagentView.svelte";
   import SessionList from "$lib/components/SessionList.svelte";
   import GitDiffSidebar from "$lib/components/GitDiffSidebar.svelte";
   import CommandPalette from "$lib/components/CommandPalette.svelte";
@@ -76,6 +77,18 @@
 
   let sessions = $state<SessionRow[]>([]);
   let selected = $state<SessionRow | undefined>(undefined);
+  /** Subagent child being viewed read-only (not mounted in the hub). */
+  let subId = $state<string | undefined>(undefined);
+  const subRow = $derived(subId ? sessions.find((s) => s.id === subId) : undefined);
+  const subParent = $derived(
+    subRow?.parentId ? sessions.find((s) => s.id === subRow.parentId) : undefined,
+  );
+  function sessionTitle(s?: SessionRow) {
+    if (!s) return "";
+    return (
+      s.name || s.sessionName || s.firstMessage?.trim().replace(/\s+/g, " ").slice(0, 80) || s.id.slice(0, 8)
+    );
+  }
   /** First successful (or failed) /api/sessions fetch — never re-block the sidebar. */
   let listReady = $state(false);
   let err = $state<string | null>(null);
@@ -242,6 +255,14 @@
   }
 
   async function onSelect(s: SessionRow, opts?: { replaceUrl?: boolean }) {
+    if (s.parentId && s.subagent) {
+      err = null;
+      subId = s.id;
+      if (!sessions.some((x) => x.id === s.id)) sessions = [...sessions, s];
+      setSessionUrl(s.id, opts?.replaceUrl ? "replace" : "push");
+      return;
+    }
+    subId = undefined;
     // Already focused — zero network
     if (
       selected &&
@@ -305,6 +326,7 @@
     err = null;
     forceCwd = cwd ?? null;
     selected = undefined;
+    subId = undefined;
     setSessionUrl(undefined);
   }
 
@@ -526,9 +548,11 @@
     const id = pathSessionId();
     if (!id) {
       selected = undefined;
+      subId = undefined;
       return;
     }
-    if (selected?.id === id) return;
+    if (selected?.id === id && !subId) return;
+    if (subId === id) return;
     let row = sessions.find((s) => s.id === id || s.path === id);
     if (!row) {
       // Disk id / cold URL: GET ensures open, returns canonical hub id
@@ -825,8 +849,13 @@
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") refresh();
     }, 60_000);
+    // Keep running-subagent badges fresh in the sidebar
+    const subTimer = setInterval(() => {
+      if (document.visibilityState === "visible" && sessions.some((s) => s.subagent?.status === "running")) void refresh();
+    }, 10_000);
     return () => {
       clearInterval(timer);
+      clearInterval(subTimer);
       window.removeEventListener("pi-gui:unauthorized", onUnauth);
       window.removeEventListener("popstate", onPop);
     };
@@ -842,7 +871,7 @@
   {#if sidebarOpen}
     <SessionList
       {sessions}
-      selectedId={selected?.id}
+      selectedId={subId ?? selected?.id}
       {listReady}
       onSelect={onSelect}
       onNew={onNew}
@@ -897,6 +926,17 @@
         </div>
       </div>
     {/if}
+    {#if subRow}
+      <SubagentView
+        session={subRow}
+        parent={subParent}
+        parentTitle={sessionTitle(subParent) || "…"}
+        onOpenParent={() => subParent && void onSelect(subParent)}
+        onStatus={() => void refresh()}
+        showExpandSidebar={!sidebarOpen}
+        onExpandSidebar={() => setSidebarOpen(true)}
+      />
+    {:else}
     <ChatPanel
       session={selected}
       {defaultCwd}
@@ -912,6 +952,7 @@
       onExpandGit={() => setGitSidebarOpen(true)}
       onOpenPalette={() => (cmdkOpen = true)}
     />
+    {/if}
   </div>
   {/if}
   {#if gitSidebarOpen}

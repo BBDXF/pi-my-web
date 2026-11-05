@@ -2,7 +2,9 @@
   import { onMount } from "svelte";
   import type { SessionRow } from "$lib/api";
   import Separator from "agentic-ui-kit/components/ui/separator.svelte";
-  import { t } from "$lib/i18n.svelte";
+  import { t, i18n } from "$lib/i18n.svelte";
+  import { relativeTime } from "$lib/utils";
+  import Bot from "@lucide/svelte/icons/bot";
   import ContextMenu, { type MenuItem } from "$lib/components/ContextMenu.svelte";
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import ExternalLink from "@lucide/svelte/icons/external-link";
@@ -234,10 +236,42 @@
     return t > 0 && Date.now() - t < ACTIVE_MS;
   }
 
-  const openSessions = $derived(sessions.filter(isActive));
+  /** Subagent children (parentId set) are nested under their parent, never top-level. */
+  const childrenOf = $derived.by(() => {
+    const ids = new Set(sessions.map((s) => s.id));
+    const map = new Map<string, SessionRow[]>();
+    for (const s of sessions) {
+      if (!s.parentId || !s.subagent || !ids.has(s.parentId)) continue;
+      let l = map.get(s.parentId);
+      if (!l) map.set(s.parentId, (l = []));
+      l.push(s);
+    }
+    for (const l of map.values()) l.sort((a, b) => activityMs(a) - activityMs(b));
+    return map;
+  });
+  const topLevel = $derived(sessions.filter((s) => !(s.parentId && s.subagent && childrenOf.has(s.parentId))));
+
+  /** Parents whose subagent list the user expanded (default collapsed). */
+  let expandedSubs = $state(new Set<string>());
+  function toggleSubs(id: string, e: MouseEvent) {
+    e.stopPropagation();
+    const next = new Set(expandedSubs);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    expandedSubs = next;
+  }
+  function subsOpen(parentId: string) {
+    if (expandedSubs.has(parentId)) return true;
+    return Boolean(selectedId && childrenOf.get(parentId)?.some((c) => c.id === selectedId));
+  }
+  function subLabel(c: SessionRow) {
+    return c.subagent?.type || c.name || c.id.slice(0, 8);
+  }
+
+  const openSessions = $derived(topLevel.filter(isActive));
 
   const pastSessionsAll = $derived.by(() => {
-    const out = sessions.filter((s) => !isActive(s));
+    const out = topLevel.filter((s) => !isActive(s));
     out.sort((a, b) => activityMs(b) - activityMs(a));
     return out;
   });
@@ -397,6 +431,59 @@
     drag = null;
   }
 </script>
+
+{#snippet subagentRows(parent: SessionRow)}
+  {@const kids = childrenOf.get(parent.id) ?? []}
+  {#if kids.length}
+    {@const open = subsOpen(parent.id)}
+    {@const running = kids.filter((k) => k.subagent?.status === "running").length}
+    <button
+      type="button"
+      class="ml-2 mt-px flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+      aria-expanded={open}
+      data-subagent-toggle={parent.id}
+      onclick={(e) => toggleSubs(parent.id, e)}
+    >
+      <ChevronRight class="size-3 shrink-0 transition-transform {open ? 'rotate-90' : ''}" />
+      <Bot class="size-3 shrink-0" />
+      <span>{t("sidebar.subagents", { n: kids.length })}</span>
+      {#if running}
+        <span class="size-1.5 animate-pulse rounded-full bg-amber-500" title={t("sidebar.subagentRunning")}></span>
+      {/if}
+    </button>
+    {#if open}
+      <ul class="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-2">
+        {#each kids as c (c.id)}
+          <li>
+            <button
+              type="button"
+              class="pi-tactile flex w-full min-w-0 flex-col rounded-lg px-2 py-1 text-left transition-colors hover:bg-muted/80 {selectedId === c.id ? 'bg-muted' : ''}"
+              data-session-row={c.id}
+              data-subagent-row
+              title={c.subagent?.description}
+              onclick={() => selectSession(c)}
+            >
+              <span class="flex min-w-0 items-center gap-1.5">
+                <span
+                  class="size-1.5 shrink-0 rounded-full {c.subagent?.status === 'running' ? 'animate-pulse bg-amber-500' : 'bg-emerald-500/70'}"
+                  role="img"
+                  aria-label={c.subagent?.status === "running" ? t("sidebar.subagentRunning") : t("sidebar.subagentDone")}
+                ></span>
+                <span class="min-w-0 flex-1 truncate text-[11px] font-medium">{subLabel(c)}</span>
+                <span class="shrink-0 text-[10px] text-muted-foreground">
+                  {c.subagent?.status === "running" ? t("sidebar.subagentRunning") : t("sidebar.subagentDone")} · {relativeTime(c.modified, i18n.locale, t("time.now"))}
+                </span>
+              </span>
+              {#if c.subagent?.description}
+                <span class="mt-px block truncate pl-3 text-[10px] text-muted-foreground">{c.subagent.description}</span>
+              {/if}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  {/if}
+{/snippet}
 
 <aside
   class="relative flex h-full shrink-0 flex-col border-r border-border bg-card"
@@ -577,6 +664,7 @@
                         </button>
                       </div>
                     </div>
+                    {@render subagentRows(s)}
                   </li>
                 {/each}
               </ul>
@@ -632,6 +720,7 @@
                     <Ellipsis class="size-3.5" />
                   </button>
                 </div>
+                {@render subagentRows(s)}
               </li>
             {/each}
           </ul>

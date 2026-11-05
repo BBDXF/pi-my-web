@@ -10,6 +10,11 @@ export type SessionRow = {
   modified?: string | Date;
   messageCount?: number;
   firstMessage?: string;
+  /** Absolute path of the parent session file (fork or subagent). */
+  parentSession?: string;
+  /** Set when this row is a subagent session: parent's session id. */
+  parentId?: string;
+  subagent?: { type: string; description: string; status: "running" | "done" };
   running: boolean;
   archived?: boolean;
   /** Live TUI (or external) attach — hub does not own/dispose the AgentSession */
@@ -250,6 +255,18 @@ export function getMessages(id: string) {
   return req<{ messages: ChatMessage[] }>(
     `/api/sessions/${encodeURIComponent(id)}/messages`,
   );
+}
+
+export type SubagentTranscript = {
+  messages: ChatMessage[];
+  description: string;
+  status: "running" | "done";
+  modified: string;
+};
+
+/** Read-only transcript of a persisted (subagent) session file. */
+export function getSubagentTranscript(path: string) {
+  return req<SubagentTranscript>(`/api/subagent-transcript?path=${encodeURIComponent(path)}`);
 }
 
 /** Image payload for multimodal prompt/steer/follow-up (pi ImageContent). */

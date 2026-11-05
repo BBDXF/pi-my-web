@@ -7,6 +7,7 @@ import { mkdirSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
+import { annotateSubagents } from "./stored-sessions.js";
 import {
   createAgentSession,
   getAgentDir,
@@ -570,6 +571,7 @@ export class SessionHub {
         modified: info.modified,
         messageCount: info.messageCount,
         firstMessage: info.firstMessage,
+        parentSession: info.parentSessionPath,
         running: Boolean(running),
         bound: Boolean(running?.bound),
         streaming: running?.session.isStreaming ?? false,
@@ -604,6 +606,8 @@ export class SessionHub {
         });
       }
     }
+
+    await annotateSubagents(rows);
 
     // Modified-desc only — don't jump open sessions to the top
     rows.sort((a, b) => {

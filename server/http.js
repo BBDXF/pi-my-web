@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { hub } from "./hub.js";
 import { createAuth } from "./auth.js";
-import { listStored, moveStored, deleteStored } from "./stored-sessions.js";
+import { readTranscript, listStored, moveStored, deleteStored } from "./stored-sessions.js";
 import { assetStream, loadCustomization } from "./customization.js";
 import {
   connectedPayload,
@@ -454,6 +454,15 @@ async function handleApi(req, res) {
     }
     if (!auth.isAuthenticated(req)) {
       return json(res, 401, { error: "Unauthorized" });
+    }
+
+    // GET /api/subagent-transcript?path= — read-only parse of a persisted session file
+    if (method === "GET" && pathname === "/api/subagent-transcript") {
+      try {
+        return json(res, 200, await readTranscript(searchParams.get("path")));
+      } catch (e) {
+        return json(res, e?.status || 500, { error: e instanceof Error ? e.message : String(e) });
+      }
     }
 
     // --- stored (persisted) sessions ---
