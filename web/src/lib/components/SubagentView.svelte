@@ -137,6 +137,7 @@
               message={m}
               {messages}
               index={i}
+              readOnly
             />
           {/if}
         {/each}

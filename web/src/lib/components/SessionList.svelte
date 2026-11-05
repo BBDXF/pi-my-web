@@ -408,6 +408,23 @@
     const live = Boolean(s.running);
     const busy = Boolean(s.streaming || s.isCompacting || s.compacting);
     const items: MenuItem[] = [{ id: "open", label: t("ctx.open"), icon: ExternalLink }];
+    if (s.subagent) {
+      const run = s.subagent.status === "running";
+      if (s.path) items.push({ id: "copy-path", label: t("ctx.copyPath"), icon: Copy, separator: true });
+      if (s.path) {
+        items.push({
+          id: "archive",
+          label: run ? t("ctx.archiveRunning") : t("ctx.archive"),
+          icon: Archive,
+          disabled: run,
+          separator: true,
+        });
+        items.push({ id: "delete", label: run ? t("ctx.deleteRunning") : t("ctx.delete"), icon: Trash2, danger: true, disabled: run });
+      }
+      return items;
+    }
+    const kids = childrenOf.get(s.id) ?? [];
+    const kidRunning = kids.some((k) => k.subagent?.status === "running");
     if (live) {
       items.push({ id: "rename", label: t("ctx.rename"), icon: Pencil });
       items.push({ id: "clone", label: t("ctx.clone"), icon: GitFork, disabled: busy });
@@ -417,12 +434,27 @@
     if (s.path) items.push({ id: "copy-path", label: t("ctx.copyPath"), icon: Copy, separator: true });
     items.push({ id: "copy-id", label: t("ctx.copyId"), icon: Copy, separator: !s.path });
     if (s.path) {
+      if (kids.some((k) => k.subagent?.status !== "running")) {
+        items.push({ id: "cleanup-subagents", label: t("ctx.cleanupSubagents"), icon: Bot, separator: true });
+      }
       items.push(
         s.archived
-          ? { id: "unarchive", label: t("ctx.restore"), icon: ArchiveRestore, separator: true }
-          : { id: "archive", label: t("ctx.archive"), icon: Archive, separator: true },
+          ? { id: "unarchive", label: t("ctx.restore"), icon: ArchiveRestore, separator: !kids.length }
+          : {
+              id: "archive",
+              label: kidRunning ? t("ctx.archiveBlocked") : t("ctx.archive"),
+              icon: Archive,
+              disabled: kidRunning,
+              separator: !kids.length,
+            },
       );
-      items.push({ id: "delete", label: t("ctx.delete"), icon: Trash2, danger: true });
+      items.push({
+        id: "delete",
+        label: kidRunning ? t("ctx.deleteBlocked") : t("ctx.delete"),
+        icon: Trash2,
+        danger: true,
+        disabled: kidRunning,
+      });
     }
     return items;
   });
@@ -455,11 +487,15 @@
       <ul class="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-2">
         {#each kids as c (c.id)}
           <li>
-            <button
-              type="button"
-              class="pi-tactile flex w-full min-w-0 flex-col rounded-lg px-2 py-1 text-left transition-colors hover:bg-muted/80 {selectedId === c.id ? 'bg-muted' : ''}"
+            <div
+              class="group/item relative rounded-lg transition-colors hover:bg-muted/80 {selectedId === c.id ? 'bg-muted' : ''}"
               data-session-row={c.id}
               data-subagent-row
+              oncontextmenu={(e) => openMenu(e, c)}
+            >
+            <button
+              type="button"
+              class="pi-tactile flex w-full min-w-0 flex-col rounded-lg px-2 py-1 text-left"
               title={c.subagent?.description}
               onclick={() => selectSession(c)}
             >
@@ -478,6 +514,18 @@
                 <span class="mt-px block truncate pl-3 text-[10px] text-muted-foreground">{c.subagent.description}</span>
               {/if}
             </button>
+            <button
+              type="button"
+              class="absolute right-1 top-1 flex size-5 items-center justify-center rounded-md bg-muted text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100"
+              title={t("ctx.more")}
+              aria-label={t("ctx.more")}
+              aria-haspopup="menu"
+              data-session-more
+              onclick={(e) => openMenu(e, c, e.currentTarget as HTMLElement)}
+            >
+              <Ellipsis class="size-3.5" />
+            </button>
+            </div>
           </li>
         {/each}
       </ul>

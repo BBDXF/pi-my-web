@@ -996,7 +996,11 @@ export type StoredSession = {
   modified?: string | Date;
   messageCount?: number;
   archived?: boolean;
+  parentId?: string;
+  subagent?: { type: string; description: string; status: "running" | "done" };
 };
+
+export type StoredResult = { moved?: { path: string }[]; deleted?: string[]; subagents?: number; skipped?: number };
 
 export async function listStoredSessions(archived: boolean) {
   const r = await req<StoredSession[] | { sessions: StoredSession[] }>(
@@ -1006,21 +1010,28 @@ export async function listStoredSessions(archived: boolean) {
 }
 
 export function archiveStored(path: string) {
-  return req<unknown>("/api/sessions/stored/archive", {
+  return req<StoredResult>("/api/sessions/stored/archive", {
     method: "POST",
     body: JSON.stringify({ path }),
   });
 }
 
 export function unarchiveStored(path: string) {
-  return req<unknown>("/api/sessions/stored/unarchive", {
+  return req<StoredResult>("/api/sessions/stored/unarchive", {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
+}
+
+export function cleanupSubagentSessions(path: string) {
+  return req<StoredResult>("/api/sessions/stored/cleanup-subagents", {
     method: "POST",
     body: JSON.stringify({ path }),
   });
 }
 
 export function deleteStored(path: string) {
-  return req<unknown>("/api/sessions/stored", {
+  return req<StoredResult>("/api/sessions/stored", {
     method: "DELETE",
     body: JSON.stringify({ path }),
   });

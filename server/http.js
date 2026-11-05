@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { hub } from "./hub.js";
 import { createAuth } from "./auth.js";
-import { readTranscript, listStored, moveStored, deleteStored } from "./stored-sessions.js";
+import { readTranscript, cleanupSubagents, listStored, moveStored, deleteStored } from "./stored-sessions.js";
 import { assetStream, loadCustomization } from "./customization.js";
 import {
   connectedPayload,
@@ -488,6 +488,15 @@ async function handleApi(req, res) {
       try {
         const body = await readJson(req);
         return json(res, 200, await moveStored(body.path, pathname.endsWith("/archive")));
+      } catch (e) {
+        return json(res, e?.status || 500, { error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+
+    if (method === "POST" && pathname === "/api/sessions/stored/cleanup-subagents") {
+      try {
+        const body = await readJson(req);
+        return json(res, 200, await cleanupSubagents(body.path));
       } catch (e) {
         return json(res, e?.status || 500, { error: e instanceof Error ? e.message : String(e) });
       }

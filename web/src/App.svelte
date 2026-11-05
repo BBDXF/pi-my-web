@@ -19,6 +19,7 @@
     shareSession,
     getAuthStatus,
     archiveStored,
+    cleanupSubagentSessions,
     unarchiveStored,
     deleteStored,
     downloadText,
@@ -402,6 +403,31 @@
   let renameTarget = $state<SessionRow | null>(null);
   let deleteTarget = $state<SessionRow | null>(null);
   let deleteBusy = $state(false);
+  let cleanupTarget = $state<SessionRow | null>(null);
+  const deleteKids = $derived(deleteTarget ? sessions.filter((x) => x.parentId === deleteTarget!.id).length : 0);
+  const cleanupKids = $derived(
+    cleanupTarget
+      ? sessions.filter((x) => x.parentId === cleanupTarget!.id && x.subagent?.status !== "running").length
+      : 0,
+  );
+  async function confirmCleanup() {
+    const s = cleanupTarget;
+    if (!s?.path || deleteBusy) return;
+    deleteBusy = true;
+    try {
+      await cleanupSubagentSessions(s.path);
+      if (subRow?.parentId === s.id && subRow.subagent?.status !== "running") {
+        subId = undefined;
+        setSessionUrl(undefined);
+      }
+    } catch (e) {
+      err = e instanceof Error ? e.message : String(e);
+    } finally {
+      deleteBusy = false;
+      cleanupTarget = null;
+    }
+    await refresh();
+  }
 
   function sameSession(a: SessionRow | undefined, b: SessionRow) {
     return Boolean(a && (a.id === b.id || (b.path && a.path === b.path)));
@@ -426,6 +452,10 @@
     }
     if (sameSession(selected, s)) {
       selected = undefined;
+      setSessionUrl(undefined);
+    }
+    if (subId && (subId === s.id || subRow?.parentId === s.id)) {
+      subId = undefined;
       setSessionUrl(undefined);
     }
     sessions = sessions.filter((x) => !sameSession(x, s) && x.id !== s.id);
@@ -486,6 +516,9 @@
           break;
         case "delete":
           deleteTarget = s;
+          return;
+        case "cleanup-subagents":
+          cleanupTarget = s;
           return;
       }
     } catch (e) {
@@ -1044,10 +1077,24 @@
     <div role="alertdialog" aria-modal="true" tabindex="-1" class="w-full max-w-sm rounded-2xl border border-border bg-popover p-5 shadow-2xl" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === "Escape" && !deleteBusy && (deleteTarget = null)}>
       <h2 class="text-base font-semibold">{t("mgr.confirmTitle")}</h2>
       <p class="mt-1 truncate text-sm font-medium">{deleteTarget.name || deleteTarget.sessionName || deleteTarget.firstMessage?.trim() || deleteTarget.id.slice(0, 8)}</p>
-      <p class="mt-2 text-sm text-muted-foreground">{t("mgr.confirmBody")}</p>
+      <p class="mt-2 text-sm text-muted-foreground">{t("mgr.confirmBody")}{#if deleteKids > 0}{" "}{t("mgr.includingSubagents", { n: deleteKids })}{/if}</p>
       <div class="mt-5 flex justify-end gap-2">
         <button type="button" class="h-9 rounded-md border border-border px-3 text-sm hover:bg-muted" disabled={deleteBusy} onclick={() => (deleteTarget = null)}>{t("common.cancel")}</button>
         <button type="button" data-confirm-delete class="h-9 rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50" disabled={deleteBusy} onclick={confirmDelete}>{t("common.delete")}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if cleanupTarget}
+  <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" role="presentation" onclick={() => !deleteBusy && (cleanupTarget = null)}>
+    <div role="alertdialog" aria-modal="true" tabindex="-1" class="w-full max-w-sm rounded-2xl border border-border bg-popover p-5 shadow-2xl" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === "Escape" && !deleteBusy && (cleanupTarget = null)}>
+      <h2 class="text-base font-semibold">{t("cleanup.title")}</h2>
+      <p class="mt-1 truncate text-sm font-medium">{cleanupTarget.name || cleanupTarget.sessionName || cleanupTarget.firstMessage?.trim() || cleanupTarget.id.slice(0, 8)}</p>
+      <p class="mt-2 text-sm text-muted-foreground">{t("cleanup.body", { n: cleanupKids })}</p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" class="h-9 rounded-md border border-border px-3 text-sm hover:bg-muted" disabled={deleteBusy} onclick={() => (cleanupTarget = null)}>{t("common.cancel")}</button>
+        <button type="button" data-confirm-cleanup class="h-9 rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50" disabled={deleteBusy} onclick={confirmCleanup}>{t("cleanup.confirm")}</button>
       </div>
     </div>
   </div>

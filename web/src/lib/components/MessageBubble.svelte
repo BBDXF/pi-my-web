@@ -41,6 +41,8 @@
     onForkUser?: (message: ChatMessage) => void;
     /** Pin under chat header while this turn's reply scrolls. */
     sticky?: boolean;
+    /** Hide copy / fork actions (read-only transcripts). */
+    readOnly?: boolean;
     /** Split the terminal assistant message into hidden work and visible final text. */
     assistantMode?: "all" | "work-only" | "final-only";
   };
@@ -53,6 +55,7 @@
     onEditUser,
     onForkUser,
     sticky = false,
+    readOnly = false,
     assistantMode = "all",
   }: Props = $props();
 
@@ -122,7 +125,7 @@
       : "",
   );
   const showAssistantCopy = $derived(
-    isAssistant && assistantMode !== "work-only" && Boolean(text.trim()),
+    !readOnly && isAssistant && assistantMode !== "work-only" && Boolean(text.trim()),
   );
   const lastToolIdx = $derived.by(() => {
     let idx = -1;
@@ -331,7 +334,7 @@
               if (e.key === "Enter" || e.key === " ") editUser(e);
             }}
           >
-            {#if !stuck}
+            {#if !stuck && !readOnly}
               <div class="absolute right-2 top-0 z-10 flex -translate-y-1/2 gap-1 rounded-full border border-border/70 bg-[var(--pi-canvas)] px-1 shadow-sm">
                 <Button
                   variant="ghost"

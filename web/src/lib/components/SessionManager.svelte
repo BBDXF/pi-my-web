@@ -50,10 +50,29 @@
     const list = q
       ? items.filter((s) => [s.name, s.firstMessage, s.cwd, s.id].some((x) => x?.toLowerCase().includes(q)))
       : items;
-    const map = new Map<string, StoredSession[]>();
+    // Subagents sit right under their parent (when the parent is listed), indented.
+    const ids = new Set(items.map((s) => s.id));
+    const kids = new Map<string, StoredSession[]>();
+    const tops: StoredSession[] = [];
     for (const s of [...list].sort((a, b) => ts(b) - ts(a))) {
+      if (s.parentId && s.subagent && ids.has(s.parentId)) {
+        (kids.get(s.parentId) ?? kids.set(s.parentId, []).get(s.parentId)!).push(s);
+      } else tops.push(s);
+    }
+    // A search hit on a child alone still needs its parent row for context.
+    for (const pid of kids.keys()) {
+      if (!tops.some((x) => x.id === pid)) {
+        const p = items.find((x) => x.id === pid);
+        if (p) tops.push(p);
+      }
+    }
+    tops.sort((a, b) => ts(b) - ts(a));
+    const map = new Map<string, StoredSession[]>();
+    for (const s of tops) {
       const k = s.cwd || "";
-      (map.get(k) ?? map.set(k, []).get(k)!).push(s);
+      const g = map.get(k) ?? map.set(k, []).get(k)!;
+      g.push(s);
+      for (const c of (kids.get(s.id) ?? []).sort((a, b) => ts(a) - ts(b))) g.push(c);
     }
     return [...map.entries()].map(([cwd, rows]) => ({ cwd, rows }));
   });
@@ -75,12 +94,19 @@
     return n ? new Date(n).toLocaleString() : "";
   }
 
+  function kidsOf(s: StoredSession) {
+    return items.filter((x) => x.parentId === s.id && x.subagent);
+  }
+  const running = (s: StoredSession) => s.subagent?.status === "running";
+  const blocked = (s: StoredSession) => running(s) || kidsOf(s).some(running);
+
   async function act(s: StoredSession, fn: (p: string) => Promise<unknown>) {
     busyPath = s.path;
     error = "";
     try {
       await fn(s.path);
-      items = items.filter((x) => x.path !== s.path);
+      const gone = new Set([s.path, ...kidsOf(s).map((k) => k.path)]);
+      items = items.filter((x) => !gone.has(x.path));
       onChanged?.();
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
@@ -137,19 +163,27 @@
             </h2>
             <ul class="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
               {#each g.rows as s (s.path)}
-                <li class="group flex items-center gap-2 px-3 py-2 hover:bg-muted/50 {busyPath === s.path ? 'opacity-50' : ''}">
+                <li class="group flex items-center gap-2 py-2 pr-3 hover:bg-muted/50 {s.subagent && s.parentId ? 'pl-8' : 'pl-3'} {busyPath === s.path ? 'opacity-50' : ''}">
                   <button type="button" class="min-w-0 flex-1 text-left" title={t("mgr.open")} onclick={() => open(s)}>
-                    <div class="truncate text-sm font-medium">{title(s)}</div>
+                    <div class="flex items-center gap-1.5 truncate text-sm font-medium">
+                      {#if s.subagent}
+                        <span class="size-1.5 shrink-0 rounded-full {running(s) ? 'animate-pulse bg-amber-500' : 'bg-emerald-500/70'}"></span>
+                        <span class="truncate">{s.subagent.type}</span>
+                      {:else}
+                        <span class="truncate">{title(s)}</span>
+                        {#if kidsOf(s).length}<span class="shrink-0 rounded-full bg-muted px-1.5 text-[10px] font-normal text-muted-foreground">{t("sidebar.subagents", { n: kidsOf(s).length })}</span>{/if}
+                      {/if}
+                    </div>
                     <div class="truncate text-[11px] text-muted-foreground">
-                      {when(s)}{#if s.messageCount != null} · {t("mgr.messages", { n: s.messageCount })}{/if}
+                      {#if s.subagent?.description}{s.subagent.description}{" · "}{/if}{when(s)}{#if s.messageCount != null}{" · "}{t("mgr.messages", { n: s.messageCount })}{/if}
                     </div>
                   </button>
                   {#if tab === "active"}
-                    <button type="button" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" title={t("mgr.archive")} aria-label={t("mgr.archive")} onclick={() => act(s, archiveStored)}><Archive class="size-4" /></button>
+                    <button type="button" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={blocked(s)} title={blocked(s) ? t("ctx.archiveBlocked") : t("mgr.archive")} aria-label={t("mgr.archive")} onclick={() => act(s, archiveStored)}><Archive class="size-4" /></button>
                   {:else}
-                    <button type="button" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" title={t("mgr.unarchive")} aria-label={t("mgr.unarchive")} onclick={() => act(s, unarchiveStored)}><ArchiveRestore class="size-4" /></button>
+                    <button type="button" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40" disabled={blocked(s)} title={t("mgr.unarchive")} aria-label={t("mgr.unarchive")} onclick={() => act(s, unarchiveStored)}><ArchiveRestore class="size-4" /></button>
                   {/if}
-                  <button type="button" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive" title={t("mgr.delete")} aria-label={t("mgr.delete")} onclick={() => (confirming = s)}><Trash2 class="size-4" /></button>
+                  <button type="button" class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40" disabled={blocked(s)} title={blocked(s) ? t("ctx.deleteBlocked") : t("mgr.delete")} aria-label={t("mgr.delete")} onclick={() => (confirming = s)}><Trash2 class="size-4" /></button>
                 </li>
               {/each}
             </ul>
@@ -165,7 +199,7 @@
     <div role="alertdialog" aria-modal="true" tabindex="-1" class="w-full max-w-sm rounded-2xl border border-border bg-popover p-5 shadow-2xl" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === "Escape" && (confirming = null)}>
       <h2 class="text-base font-semibold">{t("mgr.confirmTitle")}</h2>
       <p class="mt-1 truncate text-sm font-medium">{title(confirming)}</p>
-      <p class="mt-2 text-sm text-muted-foreground">{t("mgr.confirmBody")}</p>
+      <p class="mt-2 text-sm text-muted-foreground">{t("mgr.confirmBody")}{#if kidsOf(confirming).length}{" "}{t("mgr.includingSubagents", { n: kidsOf(confirming).length })}{/if}</p>
       <div class="mt-5 flex justify-end gap-2">
         <button type="button" class="h-9 rounded-md border border-border px-3 text-sm hover:bg-muted" onclick={() => (confirming = null)}>{t("common.cancel")}</button>
         <button type="button" class="h-9 rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700" onclick={() => confirming && act(confirming, deleteStored)}>{t("common.delete")}</button>

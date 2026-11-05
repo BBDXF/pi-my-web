@@ -1,6 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8,7 +8,7 @@ const agent = process.env.PI_CODING_AGENT_DIR || mkdtempSync(join(tmpdir(), "pig
 process.env.PI_CODING_AGENT_DIR = agent;
 delete process.env.PI_GUI_SESSIONS_DIR;
 delete process.env.PI_MY_WEB_SESSIONS_DIR;
-const { listStored, readTranscript, parseTranscript } = await import("./stored-sessions.js");
+const { listStored, readTranscript, parseTranscript, moveStored, deleteStored, cleanupSubagents } = await import("./stored-sessions.js");
 
 const dir = join(agent, "sessions", "--proj--");
 const parentFile = join(dir, "2026-01-01T00-00-00-000Z_parent-1.jsonl");
@@ -60,5 +60,46 @@ describe("subagent sessions", () => {
   it("marks stale unfinished transcripts as done", () => {
     const t = parseTranscript(lines(child("z", "x#abcdef12", [a("toolUse")])), Date.now() - 2 * 3600_000);
     assert.equal(t.status, "done");
+  });
+
+  it("cascades archive/unarchive, keeps id-based nesting in the archive, refuses running", async () => {
+    // c-run is fresh+unfinished => running => blocks the parent
+    await assert.rejects(moveStored(parentFile, true), (e) => e.status === 409);
+    await assert.rejects(moveStored(join(dir, "c-run.jsonl"), true), (e) => e.status === 409);
+    await assert.rejects(deleteStored(parentFile), (e) => e.status === 409);
+    assert.ok(existsSync(parentFile) && existsSync(join(dir, "c-done.jsonl")));
+    // finish c-run; drop the partial-line fixture from the previous test
+    rmSync(join(dir, "c-partial.jsonl"), { force: true });
+    const old = new Date(Date.now() - 3600_000);
+    writeFileSync(join(dir, "c-run.jsonl"), lines(child("c-run", "general-purpose#12345678", [a("stop")])));
+    utimesSync(join(dir, "c-run.jsonl"), old, old);
+
+    const r = await moveStored(parentFile, true);
+    assert.equal(r.subagents, 2);
+    assert.equal(r.moved.length, 3);
+    assert.ok(!existsSync(join(dir, "c-done.jsonl")));
+    const arch = await listStored(true);
+    assert.equal(arch.find((x) => x.id === "c-done").parentId, "parent-1");
+    assert.equal(arch.find((x) => x.id === "c-run").parentId, "parent-1");
+    assert.equal((await listStored(false)).some((x) => x.parentId), false);
+
+    const back = await moveStored(r.path, false);
+    assert.equal(back.moved.length, 3);
+    assert.ok(existsSync(join(dir, "c-done.jsonl")) && existsSync(parentFile));
+  });
+
+  it("cleans up finished subagents only, then deletes parent with children", async () => {
+    writeFileSync(join(dir, "c-live.jsonl"), lines(child("c-live", "Plan#99999999", [a("toolUse")])));
+    const c = await cleanupSubagents(parentFile);
+    assert.equal(c.deleted.length, 2);
+    assert.equal(c.skipped, 1);
+    assert.ok(existsSync(parentFile) && existsSync(join(dir, "c-live.jsonl")));
+    await assert.rejects(deleteStored(parentFile), (e) => e.status === 409);
+    const old = new Date(Date.now() - 3600_000);
+    writeFileSync(join(dir, "c-live.jsonl"), lines(child("c-live", "Plan#99999999", [a("stop")])));
+    utimesSync(join(dir, "c-live.jsonl"), old, old);
+    const d = await deleteStored(parentFile);
+    assert.equal(d.deleted.length, 2);
+    assert.ok(!existsSync(join(dir, "c-live.jsonl")));
   });
 });
