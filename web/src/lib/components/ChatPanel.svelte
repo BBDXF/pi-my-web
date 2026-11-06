@@ -1009,8 +1009,12 @@
     focusComposer();
 
     return () => {
-      // Leaving this session id — cache + close SSE only if still owner
-      if (wiredId === id) {
+      // Leaving this session id — cache + close SSE only if still owner.
+      // The effect also re-runs when the parent passes a new `session` object
+      // with the same id (meta patches); then the re-run keeps this stream, so
+      // closing it here would silently drop every later event. Unmount is
+      // handled by onDestroy.
+      if (wiredId === id && untrack(() => session?.id) !== id) {
         flush();
         cacheHistory(id, messages);
         stopTurnWatch();
