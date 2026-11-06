@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Bash cards: the header shows the first line of the command; expanding the card shows the full multi-line (or long) command with bash highlighting, above the output.
+
 ## 0.6.0
 
 - Subagent support for [@tintinweb/pi-subagents](https://www.npmjs.com/package/@tintinweb/pi-subagents): subagent sessions are nested under their parent in the sidebar, open in a read-only live view, and show token usage and tools.
