@@ -16,6 +16,7 @@
   } from "$lib/special-message";
   import {
     bashOutputPresentation,
+    bashCommandPresentation,
     builtinToolPresentation,
   } from "$lib/tool-presentation";
   import SpecialMessageCard from "$lib/components/SpecialMessageCard.svelte";
@@ -202,9 +203,13 @@
   {:else if role === "bashExecution"}
     {@const command = typeof message.command === "string" ? message.command : ""}
     {@const bashOutput = bashOutputPresentation(command)}
+    {@const bashCmd = bashCommandPresentation(command)}
     <Message class="justify-start">
       <ToolCallCard
-        name={`$ ${command}`}
+        name={bashCmd.title}
+        args={bashCmd.full}
+        argsLabel="command"
+        argsLang="bash"
         result={typeof message.output === "string" ? message.output : ""}
         resultLabel={bashOutput.label}
         resultLang={bashOutput.lang}
@@ -421,11 +426,11 @@
                 meta={builtin?.meta ?? ""}
                 args={builtin?.args ?? toolArgs(p)}
                 argsLabel={builtin?.argsLabel ?? "args"}
-                argsLang={builtin?.argsKind
+                argsLang={builtin?.argsLang ?? (builtin?.argsKind
                   ? builtin.argsKind === "diff"
                     ? "diff"
                     : langFromPath(builtin.path)
-                  : ""}
+                  : "")}
                 result={builtin?.result ?? resultText}
                 resultLabel={builtin?.resultLabel ?? "result"}
                 resultLang={builtin?.resultLang ?? (builtin

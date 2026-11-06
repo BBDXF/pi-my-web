@@ -9,6 +9,7 @@ export type BuiltinToolPresentation = {
   args: string;
   argsLabel: string;
   argsKind?: "code" | "diff";
+  argsLang?: string;
   result: string;
   resultLabel: string;
   resultKind: "code" | "diff";
@@ -78,6 +79,13 @@ export function bashOutputPresentation(command: string): BashOutputPresentation 
     : { label: "output", kind: "code", lang: "bash" };
 }
 
+/** Header shows the first line; the full command goes in the expandable body when it doesn't fit. */
+export function bashCommandPresentation(command: string): { title: string; full: string } {
+  const lines = command.trim().split("\n");
+  const multi = lines.length > 1 || command.length > 100;
+  return { title: `$ ${lines[0]}${lines.length > 1 ? " …" : ""}`, full: multi ? command.trim() : "" };
+}
+
 /** Presentation for pi's built-in tools; null keeps the generic tool card. */
 export function builtinToolPresentation(
   part: ContentPart,
@@ -97,12 +105,15 @@ export function builtinToolPresentation(
     if (!command) return null;
     const timeout = typeof args.timeout === "number" ? args.timeout : undefined;
     const output = bashOutputPresentation(command);
+    const cmd = bashCommandPresentation(command);
     return {
-      title: `$ ${command}`,
+      title: cmd.title,
       path: "",
       meta: timeout === undefined ? undefined : `timeout ${timeout}s`,
-      args: "",
-      argsLabel: "args",
+      args: cmd.full,
+      argsLabel: "command",
+      argsKind: cmd.full ? "code" : undefined,
+      argsLang: cmd.full ? "bash" : undefined,
       result: resultText,
       resultLabel: output.label,
       resultKind: output.kind,
