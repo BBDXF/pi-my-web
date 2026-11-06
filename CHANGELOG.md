@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2
+
+- Fix: the chat closed its live event stream (SSE) shortly after opening a session, whenever the session row was patched with the same id. Live updates were then lost; for example `/compact` showed no "compacting" state and the chat did not refresh after compaction.
+
 ## 0.6.1
 
 - Bash cards: the header shows the first line of the command; expanding the card shows the full multi-line (or long) command with bash highlighting, above the output.
