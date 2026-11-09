@@ -160,5 +160,9 @@ export const zhLiterals: Record<string, string> = {
  "Save or discard your changes before importing a skill": "请先保存或放弃更改，再导入技能",
  "Save or discard your changes before closing the skill workspace": "请先保存或放弃更改，再关闭技能工作区",
  "Project": "项目",
- "User": "用户"
+ "User": "用户",
+ "Subagent": "子代理",
+ "Auto": "自动",
+ "Auto (main model decides)": "自动（由主模型决定）",
+ "Reset to Auto": "重置为自动"
 };

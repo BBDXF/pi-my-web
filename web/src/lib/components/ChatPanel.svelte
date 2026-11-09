@@ -48,6 +48,7 @@
     messageTimestamp,
     startsTopLevelTurn,
   } from "$lib/work-section";
+  import { withAgent } from "$lib/agent-selection.svelte";
   import ChatComposer from "$lib/components/ChatComposer.svelte";
   import MessageBubble from "$lib/components/MessageBubble.svelte";
   import SlashMenu from "$lib/components/SlashMenu.svelte";
@@ -1318,17 +1319,18 @@
       } else {
         flush();
         turnHadError = false;
+        const outText = withAgent(id, body);
         const content: unknown =
           images.length > 0
             ? [
-                ...(body ? [{ type: "text", text: body }] : []),
+                ...(body ? [{ type: "text", text: outText }] : []),
                 ...images.map((im) => ({
                   type: "image" as const,
                   data: im.data,
                   mimeType: im.mimeType,
                 })),
               ]
-            : body;
+            : outText;
         stream.pushOptimisticUser(content, options);
         paintMessages(false);
         startedTurn = true;
@@ -1336,7 +1338,7 @@
         lastPromptAt = stream.lastPromptAt;
         void scrollBottom();
         playFeedback("send");
-        await prompt(id, body, imgPayload);
+        await prompt(id, outText, imgPayload);
         // REST is 202 fire-and-forget — poll if SSE misses the turn
         startTurnWatch(id);
         // Safety net if connected/snapshot raced the prompt

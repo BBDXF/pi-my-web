@@ -1074,7 +1074,9 @@ export type Capabilities = {
   skills?: { name: string; description: string }[];
   promptTemplates?: number;
   commands?: string[];
+  agents?: AgentType[];
 };
+export type AgentType = { name: string; description: string; model?: string; tools?: string };
 
 export function getCapabilities(id: string) {
   return req<Capabilities>(`/api/sessions/${encodeURIComponent(id)}/capabilities`);

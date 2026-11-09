@@ -2,6 +2,7 @@
  * Session hub — multi-session AgentSession manager for the web UI.
  * One process, many open sessions; SSE fans out events per session.
  */
+import { parseAgentTypes } from "./agent-types.js";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1699,6 +1700,7 @@ export class SessionHub {
     const infos = tryGet(() => session.getAllTools());
     const activeNames = new Set(tryGet(() => session.getActiveToolNames()) ?? []);
     if (Array.isArray(infos)) {
+      let agents;
       const mcp = new Map();
       out.tools = infos.map((t) => {
         const ns = t.namespace?.name ?? "";
@@ -1725,6 +1727,7 @@ export class SessionHub {
           if (active) g.active++;
           mcp.set(server, g);
         }
+        if (t.name === "Agent") agents = parseAgentTypes(t.description);
         const desc = String(t.description ?? "").split("\n")[0].trim();
         return {
           name: t.name,
@@ -1739,6 +1742,7 @@ export class SessionHub {
         };
       });
       out.mcpServers = [...mcp.values()];
+      if (agents) out.agents = agents;
     }
     const exts = tryGet(() => session.resourceLoader.getExtensions());
     if (exts) {

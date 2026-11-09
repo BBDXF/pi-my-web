@@ -2,6 +2,7 @@
   import { tr } from "$lib/i18n.svelte";
   import ComposerPlus from "$lib/components/ComposerPlus.svelte";
   import FolderPicker from "$lib/components/FolderPicker.svelte";
+  import AgentPicker from "$lib/components/AgentPicker.svelte";
   import ModelPicker from "$lib/components/ModelPicker.svelte";
   import Button from "agentic-ui-kit/components/ui/button.svelte";
   import {
@@ -145,6 +146,9 @@
             {shortFolder(sessionCwd)}
           </span>
         {/if}
+      {/if}
+      {#if sessionId}
+        <AgentPicker {sessionId} {disabled} />
       {/if}
       {#if showModel}
         <ModelPicker
