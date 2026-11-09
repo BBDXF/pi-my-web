@@ -533,25 +533,3 @@ describe("ChatStream event effects", () => {
     assert.equal(s.messages[0].id, "u1");
   });
 });
-
-describe("extension ui events", () => {
-  it("emits ui_request and ui_dismiss effects", () => {
-    const s = new ChatStream();
-    s.bindSession("s-ui");
-    s.commitSnapshot([], 0);
-    const r = s.handleFrame(1, {
-      type: "extension_ui_request",
-      id: "r1",
-      method: "select",
-      title: "Pick",
-      options: ["a", "b"],
-    });
-    assert.deepEqual(r, [
-      { type: "ui_request", request: { id: "r1", method: "select", title: "Pick", options: ["a", "b"] } },
-    ]);
-    assert.deepEqual(s.handleFrame(2, { type: "extension_ui_dismiss", id: "r1" }), [
-      { type: "ui_dismiss", id: "r1" },
-    ]);
-    assert.deepEqual(s.handleFrame(3, { type: "extension_ui_request", id: "x", method: "custom" }), []);
-  });
-});

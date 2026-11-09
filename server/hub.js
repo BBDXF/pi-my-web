@@ -7,7 +7,6 @@ import { mkdirSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
-import { UiRequests } from "./ui-requests.js";
 import { annotateSubagents } from "./stored-sessions.js";
 import {
   createAgentSession,
@@ -279,8 +278,6 @@ export class SessionHub {
   constructor() {
     /** @type {Map<string, OpenSession>} */
     this.sessions = new Map();
-    /** @type {Map<string, UiRequests>} */
-    this._ui = new Map();
     /** @type {import("@earendil-works/pi-coding-agent").ModelRegistry | null} */
     this._warmReg = null;
     /** @type {AgentSession | null} keep alive so extension providers stay registered */
@@ -798,8 +795,6 @@ export class SessionHub {
    * @param {{ dispose?: boolean }} [opts]
    */
   #drop(cur, opts = {}) {
-    this._ui.get(cur.id)?.cancelAll();
-    this._ui.delete(cur.id);
     this.#cancelIdle(cur);
     try {
       cur.unsub();
@@ -849,14 +844,10 @@ export class SessionHub {
    */
   async #bindSession(session, emitUiEvent) {
     const baseUi = session.extensionRunner?.getUIContext?.() ?? {};
-    const ui = new UiRequests((event) => emitUiEvent(event));
-    this._ui.get(session.sessionId)?.cancelAll();
-    this._ui.set(session.sessionId, ui);
     await session.bindExtensions({
       mode: "rpc",
       uiContext: {
         ...baseUi,
-        ...ui.overrides(),
         theme: HEADLESS_THEME,
         notify: (message, level = "info") => {
           emitUiEvent({
@@ -1081,21 +1072,6 @@ export class SessionHub {
         s.commandNotifications = undefined;
       }
     });
-  }
-
-  /** @param {string} id */
-  pendingUi(id) {
-    return this._ui.get(id)?.list() ?? [];
-  }
-
-  /**
-   * @param {string} id
-   * @param {string} requestId
-   * @param {{value?: unknown, cancelled?: boolean}} body
-   * @returns {boolean}
-   */
-  respondUi(id, requestId, body) {
-    return this._ui.get(id)?.respond(requestId, body) ?? false;
   }
 
   /** @param {string} id */
