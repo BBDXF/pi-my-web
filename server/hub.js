@@ -865,6 +865,18 @@ export class SessionHub {
             level,
           });
         },
+        // TUI components (ctx.ui.custom) can't render in the browser. Resolve
+        // undefined like pi's headless context, but tell the user why the
+        // extension's screen didn't appear.
+        custom: async () => {
+          emitUiEvent({
+            type: "extension_notification",
+            message:
+              "This extension screen needs the pi terminal UI and isn't available in the web UI yet.",
+            level: "warning",
+          });
+          return undefined;
+        },
         setStatus: (key, text) => {
           emitUiEvent({
             type: "extension_status",
@@ -1939,6 +1951,9 @@ export class SessionHub {
       this.#drop(s, { dispose: false });
       return true;
     }
+    // A command waiting on a dialog holds the session turn; cancel pending
+    // dialogs first so close can't deadlock behind it.
+    this._ui.get(s.id)?.cancelAll();
     const key = s.path || s.id;
     return this.#withPath(key, async () => {
       const cur = this.sessions.get(s.id);
