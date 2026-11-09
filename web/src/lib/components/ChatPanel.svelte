@@ -52,6 +52,9 @@
   import MessageBubble from "$lib/components/MessageBubble.svelte";
   import SlashMenu from "$lib/components/SlashMenu.svelte";
   import { t, tr } from "$lib/i18n.svelte";
+  import ExtensionUiDialog from "$lib/components/ExtensionUiDialog.svelte";
+  import { respondUi, getPendingUi } from "$lib/api";
+  import type { ExtensionUiRequest } from "$lib/chat-stream";
   import StatusBar from "$lib/components/StatusBar.svelte";
   import Button from "agentic-ui-kit/components/ui/button.svelte";
   import CommandIcon from "@lucide/svelte/icons/command";
@@ -188,6 +191,25 @@
   let streaming = $state(false);
   let bashRunning = $state(false);
   let error = $state<string | null>(null);
+  let uiQueue = $state<{ sessionId: string; request: ExtensionUiRequest }[]>([]);
+  function enqueueUi(sessionId: string, request: ExtensionUiRequest) {
+    if (uiQueue.some((q) => q.request.id === request.id)) return;
+    uiQueue = [...uiQueue, { sessionId, request }];
+  }
+  function answerUi(value: string | boolean | undefined, cancelled: boolean) {
+    const cur = uiQueue[0];
+    if (!cur) return;
+    uiQueue = uiQueue.slice(1);
+    void respondUi(cur.sessionId, cur.request.id, cancelled ? { cancelled: true } : { value }).catch(() => {});
+  }
+  async function loadPendingUi(id: string) {
+    try {
+      const { requests } = await getPendingUi(id);
+      if (wiredId === id) for (const r of requests) enqueueUi(id, r);
+    } catch {
+      /* ignore */
+    }
+  }
   /** Last failed prompt — Retry re-sends without retyping. */
   let failedPrompt = $state<{
     text: string;
@@ -556,6 +578,12 @@
           error = ef.message;
           syncTurnFlags();
           break;
+        case "ui_request":
+          enqueueUi(id, ef.request);
+          break;
+        case "ui_dismiss":
+          uiQueue = uiQueue.filter((q) => q.request.id !== ef.id);
+          break;
         case "retry_end":
           if (!ef.success) {
             error = ef.finalError || "Auto-retry failed";
@@ -868,6 +896,8 @@
 
   function wire(id: string) {
     closeEs?.();
+    uiQueue = uiQueue.filter((q) => q.sessionId === id);
+    void loadPendingUi(id);
     closeEs = subscribeEvents(
       id,
       (ev, meta) => {
@@ -1905,6 +1935,15 @@
     {/if}
   {/if}
 
+{#if uiQueue[0]}
+  {#key uiQueue[0].request.id}
+    <ExtensionUiDialog
+      request={uiQueue[0].request}
+      onAnswer={(v) => answerUi(v, false)}
+      onCancel={() => answerUi(undefined, true)}
+    />
+  {/key}
+{/if}
 </section>
 
 <style>

@@ -299,6 +299,23 @@ export function prompt(id: string, message: string, images?: PromptImage[]) {
   });
 }
 
+export function respondUi(
+  id: string,
+  requestId: string,
+  body: { value?: string | boolean; cancelled?: boolean },
+) {
+  return req<{ ok: boolean }>(`/api/sessions/${encodeURIComponent(id)}/ui-response`, {
+    method: "POST",
+    body: JSON.stringify({ requestId, ...body }),
+  });
+}
+
+export function getPendingUi(id: string) {
+  return req<{ requests: import("./chat-stream").ExtensionUiRequest[] }>(
+    `/api/sessions/${encodeURIComponent(id)}/ui-pending`,
+  );
+}
+
 export function runCommand(id: string, command: string) {
   return req<{
     ok: boolean;

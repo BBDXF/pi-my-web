@@ -681,6 +681,23 @@ async function handleApi(req, res) {
       }
     }
 
+    // POST /api/sessions/:id/ui-response  { requestId, value?, cancelled? }
+    id = sessionAction(pathname, "ui-response");
+    if (method === "POST" && id) {
+      const body = await readJson(req);
+      if (typeof body.requestId !== "string" ||
+          !hub.respondUi(id, body.requestId, { value: body.value, cancelled: body.cancelled === true })) {
+        return json(res, 404, { error: "unknown request" });
+      }
+      return json(res, 200, { ok: true });
+    }
+
+    // GET /api/sessions/:id/ui-pending
+    id = sessionAction(pathname, "ui-pending");
+    if (method === "GET" && id) {
+      return json(res, 200, { requests: hub.pendingUi(id) });
+    }
+
     // POST /api/sessions/:id/abort
     id = sessionAction(pathname, "abort");
     if (method === "POST" && id) {

@@ -43,7 +43,20 @@ export type StreamEffect =
   | { type: "compacting"; active: boolean; errorMessage?: string }
   | { type: "tree_navigated"; editorText?: string }
   | { type: "retry"; message: string }
-  | { type: "retry_end"; success: boolean; finalError?: string };
+  | { type: "retry_end"; success: boolean; finalError?: string }
+  | { type: "ui_request"; request: ExtensionUiRequest }
+  | { type: "ui_dismiss"; id: string };
+
+export type ExtensionUiRequest = {
+  id: string;
+  method: "select" | "confirm" | "input" | "editor";
+  title: string;
+  options?: string[];
+  message?: string;
+  placeholder?: string;
+  prefill?: string;
+  timeout?: number;
+};
 
 const SEQ_STORE = "pi-gui-sse-seq:";
 
@@ -676,6 +689,24 @@ export class ChatStream {
       case "command_start":
         this.commandSseActive = true;
         return [];
+      case "extension_ui_request": {
+        const method = e.method;
+        if (typeof e.id !== "string" || !e.id) return [];
+        if (method !== "select" && method !== "confirm" && method !== "input" && method !== "editor") return [];
+        const request: ExtensionUiRequest = {
+          id: e.id,
+          method,
+          title: typeof e.title === "string" ? e.title : "",
+        };
+        if (Array.isArray(e.options)) request.options = e.options.map(String);
+        if (typeof e.message === "string") request.message = e.message;
+        if (typeof e.placeholder === "string") request.placeholder = e.placeholder;
+        if (typeof e.prefill === "string") request.prefill = e.prefill;
+        if (typeof e.timeout === "number") request.timeout = e.timeout;
+        return [{ type: "ui_request", request }];
+      }
+      case "extension_ui_dismiss":
+        return typeof e.id === "string" ? [{ type: "ui_dismiss", id: e.id }] : [];
       case "extension_notification": {
         if (!this.commandSseActive) return [];
         const message = typeof e.message === "string" ? e.message : "";
